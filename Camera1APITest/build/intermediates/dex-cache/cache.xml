@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<items version="2" >
+
+    <item
+        jar="/Users/Ngynstvn/Documents/bloc_io/ScratchWork/camera_1_api_test/Camera1APITest/app/build/intermediates/exploded-aar/com.android.support/support-v4/23.1.1/jars/classes.jar"
+        jumboMode="false"
+        revision="23.0.2"
+        sha1="6cbc7773921fcfedbe55657578f0cbfe614778dc">
+        <dex dex="/Users/Ngynstvn/Documents/bloc_io/ScratchWork/camera_1_api_test/Camera1APITest/app/build/intermediates/pre-dexed/debug/classes-46b945e85cc6db2bfc8e87baa023f97b4c240a30.jar" />
+    </item>
+    <item
+        jar="/Users/Ngynstvn/Library/Android/sdk/extras/android/m2repository/com/android/support/support-annotations/23.1.1/support-annotations-23.1.1.jar"
+        jumboMode="false"
+        revision="23.0.2"
+        sha1="8d680ba5a623724d1fb0e81c36a790f023a6cede">
+        <dex dex="/Users/Ngynstvn/Documents/bloc_io/ScratchWork/camera_1_api_test/Camera1APITest/app/build/intermediates/pre-dexed/debug/support-annotations-23.1.1-6f65c005ae535dd8cc9a1745f769472d0abb8266.jar" />
+    </item>
+    <item
+        jar="/Users/Ngynstvn/Documents/bloc_io/ScratchWork/camera_1_api_test/Camera1APITest/app/build/intermediates/exploded-aar/com.android.support/support-v4/23.1.1/jars/libs/internal_impl-23.1.1.jar"
+        jumboMode="false"
+        revision="23.0.2"
+        sha1="a4de9c81ae239414e1ed0f86441b02abaf29bca9">
+        <dex dex="/Users/Ngynstvn/Documents/bloc_io/ScratchWork/camera_1_api_test/Camera1APITest/app/build/intermediates/pre-dexed/debug/internal_impl-23.1.1-f3e1f4d3c328085693bbebd96558e79b170ac417.jar" />
+    </item>
+    <item
+        jar="/Users/Ngynstvn/Documents/bloc_io/ScratchWork/camera_1_api_test/Camera1APITest/app/build/intermediates/exploded-aar/com.android.support/appcompat-v7/23.1.1/jars/classes.jar"
+        jumboMode="false"
+        revision="23.0.2"
+        sha1="5c5699834e9722f1c288fea2de82725d078ba127">
+        <dex dex="/Users/Ngynstvn/Documents/bloc_io/ScratchWork/camera_1_api_test/Camera1APITest/app/build/intermediates/pre-dexed/debug/classes-3fdf2611d712f0198645127a07cee1229d3d9c41.jar" />
+    </item>
+
+</items>
