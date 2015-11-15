@@ -11,6 +11,11 @@
 
         <!-- SurfaceView Goes here -->
 
+        <SurfaceView
+            android:id="@+id/sv_activity_main"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
         <ImageView
             android:id="@+id/iv_capture_image"
             android:layout_width="match_parent"
