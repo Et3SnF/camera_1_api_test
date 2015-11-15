@@ -1,9 +1,13 @@
 package com.android.ngynstvn.camera1apitest;
 
+import android.content.pm.PackageManager;
+import android.hardware.Camera;
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.Surface;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -12,12 +16,64 @@ import android.view.animation.AlphaAnimation;
 import android.view.animation.AnimationSet;
 import android.view.animation.TranslateAnimation;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
+import android.widget.Toast;
+
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "(" + MainActivity.class.getSimpleName() + "): ";
+    private static final int MEDIA_TYPE_IMAGE = 1;
 
+    /**
+     * STEPS TO SETTING UP CAMERA 1
+     *
+     * 1. Detect and access camera
+     * 2. Create Preview Class (SurfaceView and something that implements SurfaceHolder interface)
+     * 3. Build a Preview Layout
+     * 4. Set up listeners for capture
+     * 5. Capture and save files
+     * 6. Release the camera (Camera.release())
+     *
+     */
+
+    /**
+     *
+     * Camera Variables
+     *
+     */
+
+    private Camera camera = null;
+    private int cameraId = -1;
+    private int cameraOrientation;
+    private CameraPreview cameraPreview;
+    private File tempImageFile;
+    private Camera.PictureCallback pictureCallback = new Camera.PictureCallback() {
+        @Override
+        public void onPictureTaken(byte[] data, Camera camera) {
+            File capturedImgFile = getOutputMediaFile(MEDIA_TYPE_IMAGE);
+
+            if(capturedImgFile == null) {
+                Log.e(TAG, "Error creating media file. Try again.");
+                return;
+            }
+
+            tempImageFile = capturedImgFile;
+            Log.v(TAG, "The image was captured but not saved.");
+        }
+    };
+
+    /**
+     *
+     * View Variables
+     *
+     */
+
+    private FrameLayout previewLayout;
     private RelativeLayout topIconsHolder;
     private Button exitCameraBtn;
 
@@ -45,7 +101,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Basically get this whole cycle working...it all starts with TextureView
 
-        // SurfaceView stuff here
+        previewLayout = (FrameLayout) findViewById(R.id.fl_camera_preview);
         topIconsHolder = (RelativeLayout) findViewById(R.id.rl_top_icons);
         exitCameraBtn = (Button) findViewById(R.id.btn_exit_camera);
         bottomIconsHolder = (RelativeLayout) findViewById(R.id.rl_bottom_icons);
@@ -57,6 +113,30 @@ public class MainActivity extends AppCompatActivity {
         cancelCaptureBtn = findViewById(R.id.v_pic_cancel);
         approveCaptureBtn = findViewById(R.id.v_pic_approve);
 
+        // Camera Material here
+
+        if(isCameraHardwareAvailable()) {
+            Log.v(TAG, "Camera hardware is available.");
+            cameraId = getCurrentCameraId();
+            Log.v(TAG, "Current cameraId: " + cameraId);
+
+            camera = getCameraInstance(cameraId);
+            cameraPreview = new CameraPreview(this, camera);
+            camera.setDisplayOrientation(90);
+            previewLayout.addView(cameraPreview);
+
+            if(camera != null) {
+                Log.e(TAG, "Camera Instance is not null");
+            }
+            else {
+                Log.e(TAG, "Camera is null. Ending activity.");
+                if(isTaskRoot()) {
+                    finish();
+                }
+                return;
+            }
+        }
+
         exitCameraBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -66,6 +146,8 @@ public class MainActivity extends AppCompatActivity {
         captureButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+
+                takePhoto();
 
                 int upDownTransHeight = bottomIconsHolder.getMeasuredHeight();
 
@@ -110,7 +192,7 @@ public class MainActivity extends AppCompatActivity {
         cancelCaptureBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
+                
                 int leftRightTransWidth = cancelCapBtnHolder.getMeasuredWidth();
 
                 moveFadeAnimation(cancelCapBtnHolder, displayMetrics.widthPixels
@@ -161,6 +243,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         Log.e(TAG, "onPause() called");
+        releaseCamera();
         super.onPause();
     }
 
@@ -210,5 +293,138 @@ public class MainActivity extends AppCompatActivity {
         translateAnimation.setDuration(time);
         viewGroup.startAnimation(translateAnimation);
 
+    }
+
+    /**
+     *
+     * Camera Methods
+     *
+     */
+
+    private boolean isCameraHardwareAvailable() {
+        return getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA);
+    }
+
+    private Camera getCameraInstance(int cameraId) {
+
+        if(isCameraHardwareAvailable()) {
+            try {
+                return Camera.open(cameraId);
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    private int getCurrentCameraId() {
+
+        int cameraId = -1;
+        int numOfCameras = Camera.getNumberOfCameras();
+
+        if(numOfCameras == 0) {
+            Log.e(TAG, "There are no cameras on this phone.");
+            Toast.makeText(this, "There are no cameras on this phone", Toast.LENGTH_SHORT).show();
+            return cameraId;
+        }
+
+        // Get camera Ids
+
+        for(int i = 0; i < numOfCameras; i++) {
+            Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
+            Camera.getCameraInfo(i, cameraInfo);
+
+            if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+                Log.v(TAG, "Front facing camera detected");
+                cameraId = i;
+            }
+            else if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
+                Log.v(TAG, "Back facing camera detected");
+            }
+        }
+
+        return cameraId;
+    }
+
+    private void setCameraDisplayOrientaiton() {
+        Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
+        Camera.getCameraInfo(cameraId, cameraInfo);
+
+        int rotation = getWindowManager().getDefaultDisplay().getRotation();
+        int degrees = 0;
+
+        switch (rotation) {
+            case Surface.ROTATION_0:
+                degrees = 90;
+                break;
+            case  Surface.ROTATION_90:
+                degrees = 0;
+                break;
+            case  Surface.ROTATION_180:
+                degrees = 90;
+                break;
+            case  Surface.ROTATION_270:
+                degrees = 0;
+                break;
+        }
+
+        if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+            cameraOrientation = (cameraInfo.orientation + degrees) % 360;
+            cameraOrientation = (360 - cameraOrientation) % 360;
+        }
+        else {
+            cameraOrientation = (cameraInfo.orientation - degrees + 360) % 360;
+        }
+
+        camera.setDisplayOrientation(cameraOrientation);
+    }
+
+    private void releaseCamera() {
+        if(camera != null) {
+            camera.release();
+            camera = null;
+            cameraPreview = null;
+        }
+    }
+
+    private void takePhoto() {
+        if(camera != null) {
+            camera.takePicture(null, null, pictureCallback);
+        }
+
+        releaseCamera();
+    }
+
+    private static File getOutputMediaFile(int type){
+        // To be safe, you should check that the SDCard is mounted
+        // using Environment.getExternalStorageState() before doing this.
+
+        File storageDirectory = new File(Environment.getExternalStorageDirectory() + "/Blocparty/");
+        // This location works best if you want the created images to be shared
+        // between applications and persist after your app has been uninstalled.
+
+        // Create the storage directory if it does not exist
+        if (! storageDirectory.exists()){
+            if (! storageDirectory.mkdirs()){
+                Log.d("MyCameraApp", "failed to create directory");
+                return null;
+            }
+        }
+
+        // Create a media file name
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        File mediaFile;
+        if (type == MEDIA_TYPE_IMAGE){
+            mediaFile = new File(storageDirectory.getPath() + File.separator +
+                    "IMG_"+ timeStamp + ".jpg");
+        }
+        else {
+            return null;
+        }
+
+        return mediaFile;
     }
 }
