@@ -192,7 +192,7 @@ public class MainActivity extends AppCompatActivity {
         cancelCaptureBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                
+
                 int leftRightTransWidth = cancelCapBtnHolder.getMeasuredWidth();
 
                 moveFadeAnimation(cancelCapBtnHolder, displayMetrics.widthPixels
@@ -238,6 +238,16 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         Log.e(TAG, "onResume() called");
         super.onResume();
+
+        if(camera == null) {
+            setContentView(R.layout.activity_main);
+            cameraId = getCurrentCameraId();
+            camera = getCameraInstance(cameraId);
+            camera.setDisplayOrientation(90);
+            cameraPreview = new CameraPreview(this, camera);
+            previewLayout = (FrameLayout) findViewById(R.id.fl_camera_preview);
+            previewLayout.addView(cameraPreview);
+        }
     }
 
     @Override
@@ -387,6 +397,8 @@ public class MainActivity extends AppCompatActivity {
             camera.release();
             camera = null;
             cameraPreview = null;
+            previewLayout.removeAllViews();
+            previewLayout = null;
         }
     }
 
