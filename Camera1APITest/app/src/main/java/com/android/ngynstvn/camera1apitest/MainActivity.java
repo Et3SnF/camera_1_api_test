@@ -250,7 +250,6 @@ public class MainActivity extends AppCompatActivity {
             setContentView(R.layout.activity_main);
             cameraId = getCurrentCameraId();
             camera = getCameraInstance(cameraId);
-            camera.setDisplayOrientation(90);
             cameraPreview = new CameraPreview(this, camera);
             previewLayout = (FrameLayout) findViewById(R.id.fl_camera_preview);
             previewLayout.addView(cameraPreview);
