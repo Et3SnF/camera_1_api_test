@@ -20,7 +20,6 @@ import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import java.io.File;
-import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -191,15 +190,7 @@ public class MainActivity extends AppCompatActivity {
         cancelCaptureBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
-                try {
-                    camera.reconnect();
-
-                }
-                catch (IOException e) {
-                    e.printStackTrace();
-                }
-
+                
                 int leftRightTransWidth = cancelCapBtnHolder.getMeasuredWidth();
 
                 moveFadeAnimation(cancelCapBtnHolder, displayMetrics.widthPixels
