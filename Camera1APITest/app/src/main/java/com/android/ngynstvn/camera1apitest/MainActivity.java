@@ -15,6 +15,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
 import android.view.animation.AnimationSet;
@@ -157,29 +158,31 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             @Override
             public void onClick(View v) {
 
-                int upDownTransHeight = bottomIconsHolder.getMeasuredHeight();
-
-                moveVerticalAnimation(bottomIconsHolder, 0, upDownTransHeight, transDuration);
-                moveVerticalAnimation(topIconsHolder, 0, (-1 * upDownTransHeight), transDuration);
-
-                topIconsHolder.setEnabled(false);
-                bottomIconsHolder.setEnabled(false);
-                topIconsHolder.setVisibility(View.GONE);
-                bottomIconsHolder.setVisibility(View.GONE);
-
-                cancelCaptureBtn.setEnabled(true);
-                approveCaptureBtn.setEnabled(true);
-
-                int leftRightTransWidth = cancelCaptureBtn.getMeasuredWidth();
-
-                moveFadeAnimation(cancelCaptureBtn, (-1 * leftRightTransWidth),
-                        displayMetrics.widthPixels, 0, 0, 0.00f, 1.00f, transDuration, fadeDuration);
-
-                moveFadeAnimation(approveCaptureBtn, leftRightTransWidth, displayMetrics.widthPixels
-                        , 0, 0, 0.0f, 1.0f, transDuration, fadeDuration);
-
-                cancelCaptureBtn.setVisibility(View.VISIBLE);
-                approveCaptureBtn.setVisibility(View.VISIBLE);
+                previewCaptureFlashAnimation(surfaceView);
+//
+//                int upDownTransHeight = bottomIconsHolder.getMeasuredHeight();
+//
+//                moveVerticalAnimation(bottomIconsHolder, 0, upDownTransHeight, transDuration);
+//                moveVerticalAnimation(topIconsHolder, 0, (-1 * upDownTransHeight), transDuration);
+//
+//                topIconsHolder.setEnabled(false);
+//                bottomIconsHolder.setEnabled(false);
+//                topIconsHolder.setVisibility(View.GONE);
+//                bottomIconsHolder.setVisibility(View.GONE);
+//
+//                cancelCaptureBtn.setEnabled(true);
+//                approveCaptureBtn.setEnabled(true);
+//
+//                int leftRightTransWidth = cancelCaptureBtn.getMeasuredWidth();
+//
+//                moveFadeAnimation(cancelCaptureBtn, (-1 * leftRightTransWidth),
+//                        displayMetrics.widthPixels, 0, 0, 0.00f, 1.00f, transDuration, fadeDuration);
+//
+//                moveFadeAnimation(approveCaptureBtn, leftRightTransWidth, displayMetrics.widthPixels
+//                        , 0, 0, 0.0f, 1.0f, transDuration, fadeDuration);
+//
+//                cancelCaptureBtn.setVisibility(View.VISIBLE);
+//                approveCaptureBtn.setVisibility(View.VISIBLE);
             }
         });
 
@@ -325,31 +328,21 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         view.startAnimation(animationSet);
     }
 
-    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
-    private void switchCameraIcons(boolean isFrontFacing) {
+    private void quickFadeInOutAnimation(View view, float fromAlpha, float toAlpha, long time1, long time2) {
+        AnimationSet animationSet = new AnimationSet(true);
+        AlphaAnimation fadeInAnimation = new AlphaAnimation(fromAlpha, toAlpha);
+        AlphaAnimation fadeOutAnimation = new AlphaAnimation(toAlpha, fromAlpha);
 
-        Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
-        if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-            isFrontFacing = true;
-        }
-        else if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK){
-            isFrontFacing = false;
-        }
+        fadeInAnimation.setInterpolator(new AccelerateDecelerateInterpolator());
+        fadeOutAnimation.setInterpolator(new AccelerateDecelerateInterpolator());
 
-        if(isFrontFacing) {
-            fadeRotateViewAnimation(cameraSwitchBtn, 1.00F, 0.00F, 400L);
-            cameraSwitchBtn.setVisibility(View.GONE);
-            cameraSwitchBtn.setBackground(getResources().getDrawable(R.drawable.ic_camera_rear_white_24dp));
-            fadeRotateViewAnimation(cameraSwitchBtn, 0.00F, 1.00F, 400L);
-            cameraSwitchBtn.setVisibility(View.VISIBLE);
-        }
-        else {
-            fadeRotateViewAnimation(cameraSwitchBtn, 1.00F, 0.00F, 400L);
-            cameraSwitchBtn.setVisibility(View.GONE);
-            cameraSwitchBtn.setBackground(getResources().getDrawable(R.drawable.ic_camera_front_white_24dp));
-            fadeRotateViewAnimation(cameraSwitchBtn, 0.00F, 1.00F, 400L);
-            cameraSwitchBtn.setVisibility(View.VISIBLE);
-        }
+        fadeInAnimation.setDuration(time1);
+        fadeOutAnimation.setDuration(time2);
+
+        animationSet.addAnimation(fadeInAnimation);
+        animationSet.addAnimation(fadeOutAnimation);
+
+        view.startAnimation(animationSet);
     }
 
     /**
@@ -357,6 +350,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
      * Camera Methods
      *
      */
+
+    private void previewCaptureFlashAnimation(View view) {
+        quickFadeInOutAnimation(view, 0.00F, 0.05F, 150L, 150L);
+    }
 
     private boolean isCameraHardwareAvailable() {
         return getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA);
@@ -510,6 +507,33 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         return parameters.getSupportedPreviewSizes().get(0);
     }
 
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
+    private void switchCameraIcons(boolean isFrontFacing) {
+
+        Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
+        if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+            isFrontFacing = true;
+        }
+        else if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK){
+            isFrontFacing = false;
+        }
+
+        if(isFrontFacing) {
+            fadeRotateViewAnimation(cameraSwitchBtn, 1.00F, 0.00F, 400L);
+            cameraSwitchBtn.setVisibility(View.GONE);
+            cameraSwitchBtn.setBackground(getResources().getDrawable(R.drawable.ic_camera_rear_white_24dp));
+            fadeRotateViewAnimation(cameraSwitchBtn, 0.00F, 1.00F, 400L);
+            cameraSwitchBtn.setVisibility(View.VISIBLE);
+        }
+        else {
+            fadeRotateViewAnimation(cameraSwitchBtn, 1.00F, 0.00F, 400L);
+            cameraSwitchBtn.setVisibility(View.GONE);
+            cameraSwitchBtn.setBackground(getResources().getDrawable(R.drawable.ic_camera_front_white_24dp));
+            fadeRotateViewAnimation(cameraSwitchBtn, 0.00F, 1.00F, 400L);
+            cameraSwitchBtn.setVisibility(View.VISIBLE);
+        }
+    }
+
     /**
      *
      * SurfaceHolder.Callback Listener
@@ -522,7 +546,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         // Display the preview
 
         try {
-            camera = getCameraInstance(cameraId);
             camera.setPreviewDisplay(surfaceHolder);
         } catch (IOException e) {
             Log.e(TAG, "There was an issue displaying the preview: " + e.getMessage());

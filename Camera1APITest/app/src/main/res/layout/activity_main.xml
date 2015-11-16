@@ -5,7 +5,7 @@
     android:layout_height="match_parent">
 
     <FrameLayout
-        android:id="@+id/fl_txv_and_preview"
+        android:id="@+id/fl_sv_camera_preview"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
@@ -14,13 +14,7 @@
         <SurfaceView
             android:id="@+id/sv_camera_preview"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
-
-        <ImageView
-            android:id="@+id/iv_capture_image"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:visibility="gone"/>
+            android:layout_height="match_parent"/>
 
     </FrameLayout>
 
