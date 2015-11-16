@@ -158,31 +158,30 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             @Override
             public void onClick(View v) {
 
-                previewCaptureFlashAnimation(surfaceView);
-//
-//                int upDownTransHeight = bottomIconsHolder.getMeasuredHeight();
-//
-//                moveVerticalAnimation(bottomIconsHolder, 0, upDownTransHeight, transDuration);
-//                moveVerticalAnimation(topIconsHolder, 0, (-1 * upDownTransHeight), transDuration);
-//
-//                topIconsHolder.setEnabled(false);
-//                bottomIconsHolder.setEnabled(false);
-//                topIconsHolder.setVisibility(View.GONE);
-//                bottomIconsHolder.setVisibility(View.GONE);
-//
-//                cancelCaptureBtn.setEnabled(true);
-//                approveCaptureBtn.setEnabled(true);
-//
-//                int leftRightTransWidth = cancelCaptureBtn.getMeasuredWidth();
-//
-//                moveFadeAnimation(cancelCaptureBtn, (-1 * leftRightTransWidth),
-//                        displayMetrics.widthPixels, 0, 0, 0.00f, 1.00f, transDuration, fadeDuration);
-//
-//                moveFadeAnimation(approveCaptureBtn, leftRightTransWidth, displayMetrics.widthPixels
-//                        , 0, 0, 0.0f, 1.0f, transDuration, fadeDuration);
-//
-//                cancelCaptureBtn.setVisibility(View.VISIBLE);
-//                approveCaptureBtn.setVisibility(View.VISIBLE);
+
+                int upDownTransHeight = bottomIconsHolder.getMeasuredHeight();
+
+                moveVerticalAnimation(bottomIconsHolder, 0, upDownTransHeight, transDuration);
+                moveVerticalAnimation(topIconsHolder, 0, (-1 * upDownTransHeight), transDuration);
+
+                topIconsHolder.setEnabled(false);
+                bottomIconsHolder.setEnabled(false);
+                topIconsHolder.setVisibility(View.GONE);
+                bottomIconsHolder.setVisibility(View.GONE);
+
+                cancelCaptureBtn.setEnabled(true);
+                approveCaptureBtn.setEnabled(true);
+
+                int leftRightTransWidth = cancelCaptureBtn.getMeasuredWidth();
+
+                moveFadeAnimation(cancelCaptureBtn, (-1 * leftRightTransWidth),
+                        displayMetrics.widthPixels, 0, 0, 0.00f, 1.00f, transDuration, fadeDuration);
+
+                moveFadeAnimation(approveCaptureBtn, leftRightTransWidth, displayMetrics.widthPixels
+                        , 0, 0, 0.0f, 1.0f, transDuration, fadeDuration);
+
+                cancelCaptureBtn.setVisibility(View.VISIBLE);
+                approveCaptureBtn.setVisibility(View.VISIBLE);
             }
         });
 
