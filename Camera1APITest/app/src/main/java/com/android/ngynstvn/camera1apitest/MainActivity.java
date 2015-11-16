@@ -9,6 +9,8 @@ import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -24,10 +26,14 @@ import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements SurfaceHolder.Callback {
 
     private static final String TAG = "(" + MainActivity.class.getSimpleName() + "): ";
     private static final int MEDIA_TYPE_IMAGE = 1;
@@ -50,6 +56,9 @@ public class MainActivity extends AppCompatActivity {
      *
      */
 
+    private SurfaceView surfaceView;
+    private Camera.Size previewSize;
+    private SurfaceHolder surfaceHolder;
     private Camera camera = null;
     private int cameraId = -1;
     private int cameraOrientation;
@@ -102,6 +111,10 @@ public class MainActivity extends AppCompatActivity {
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        surfaceHolder = getHolder();
+        surfaceHolder.addCallback(this);
+        surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 
         // Basically get this whole cycle working...it all starts with TextureView
 
@@ -479,5 +492,64 @@ public class MainActivity extends AppCompatActivity {
         cameraPreview = new CameraPreview(this, camera);
         previewLayout = (FrameLayout) findViewById(R.id.fl_camera_preview);
         previewLayout.addView(cameraPreview);
+    }
+
+    private Camera.Size getPreferredPreviewSize(int width, int height, Camera.Parameters parameters) {
+
+        ArrayList<Camera.Size> supportedPreviewSizes = (ArrayList<Camera.Size>) parameters.getSupportedPreviewSizes();
+
+        for(Camera.Size option : supportedPreviewSizes) {
+            //Landscape Preview Sizes
+
+            if(width > height) {
+
+                if(option.width > width && option.height > height) {
+                    supportedPreviewSizes.add(option);
+                }
+
+            }
+            else {
+                if(option.width > height && option.height > width) {
+                    supportedPreviewSizes.add(option);
+                }
+            }
+        }
+
+        if(supportedPreviewSizes.size() > 0) {
+            return Collections.max(supportedPreviewSizes, new Comparator<Camera.Size>() {
+                @Override
+                public int compare(Camera.Size lhs, Camera.Size rhs) {
+                    return Long.signum(lhs.width * lhs.height - rhs.width * rhs.height);
+                }
+            });
+        }
+
+        return parameters.getSupportedPreviewSizes().get(0);
+    }
+
+    /**
+     *
+     * SurfaceHolder.Callback Listener
+     *
+     */
+
+    @Override
+    public void surfaceCreated(SurfaceHolder holder) {
+        try {
+            camera.setPreviewDisplay(surfaceHolder);
+        } catch (IOException e) {
+            Log.e(TAG, "There was an issue displaying the preview: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+
+    }
+
+    @Override
+    public void surfaceDestroyed(SurfaceHolder holder) {
+
     }
 }
