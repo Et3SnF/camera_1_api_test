@@ -56,6 +56,8 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
 
         // Whatever preview size is here
 
+        camera.setDisplayOrientation(90);
+
         // Then display changes
         try {
             camera.setPreviewDisplay(surfaceHolder);

@@ -117,29 +117,15 @@ public class MainActivity extends AppCompatActivity {
 
         if(isCameraHardwareAvailable()) {
             Log.v(TAG, "Camera hardware is available.");
-            cameraId = getCurrentCameraId();
-            Log.v(TAG, "Current cameraId: " + cameraId);
-
-            camera = getCameraInstance(cameraId);
-            cameraPreview = new CameraPreview(this, camera);
-            camera.setDisplayOrientation(90);
-            previewLayout.addView(cameraPreview);
-
-            if(camera != null) {
-                Log.e(TAG, "Camera Instance is not null");
-            }
-            else {
-                Log.e(TAG, "Camera is null. Ending activity.");
-                if(isTaskRoot()) {
-                    finish();
-                }
-                return;
-            }
+            startCamera();
         }
 
         exitCameraBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                if(!isTaskRoot()) {
+                    finish();
+                }
             }
         });
 
@@ -241,12 +227,7 @@ public class MainActivity extends AppCompatActivity {
 
         if(camera == null) {
             setContentView(R.layout.activity_main);
-            cameraId = getCurrentCameraId();
-            camera = getCameraInstance(cameraId);
-            camera.setDisplayOrientation(90);
-            cameraPreview = new CameraPreview(this, camera);
-            previewLayout = (FrameLayout) findViewById(R.id.fl_camera_preview);
-            previewLayout.addView(cameraPreview);
+            startCamera();
         }
     }
 
@@ -390,6 +371,28 @@ public class MainActivity extends AppCompatActivity {
         }
 
         camera.setDisplayOrientation(cameraOrientation);
+    }
+
+    private void startCamera() {
+        setContentView(R.layout.activity_main);
+        cameraId = getCurrentCameraId();
+        Log.v(TAG, "Current cameraId: " + cameraId);
+
+        camera = getCameraInstance(cameraId);
+        cameraPreview = new CameraPreview(this, camera);
+        camera.setDisplayOrientation(90);
+        previewLayout.addView(cameraPreview);
+
+        if(camera != null) {
+            Log.e(TAG, "Camera Instance is not null");
+        }
+        else {
+            Log.e(TAG, "Camera is null. Ending activity.");
+            if(isTaskRoot()) {
+                finish();
+            }
+            return;
+        }
     }
 
     private void releaseCamera() {
