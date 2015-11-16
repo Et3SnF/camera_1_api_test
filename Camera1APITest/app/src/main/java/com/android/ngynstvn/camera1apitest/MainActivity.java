@@ -177,7 +177,7 @@ public class MainActivity extends AppCompatActivity {
         cameraSwitchBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
+                switchCameraFacing();
             }
         });
 
@@ -312,6 +312,15 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    private void fadeButtonAnimation(View view, float fromAlpha, float toAlpha, long time1) {
+        AnimationSet animationSet = new AnimationSet(true);
+        AlphaAnimation fadeAnimation = new AlphaAnimation(fromAlpha, toAlpha);
+
+        fadeAnimation.setDuration(time1);
+
+        view.setAnimation(animationSet);
+    }
+
     /**
      *
      * Camera Methods
@@ -357,9 +366,11 @@ public class MainActivity extends AppCompatActivity {
             if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
                 Log.v(TAG, "Front facing camera detected");
                 cameraId = i;
+                flashModeBtn.setVisibility(View.GONE);
             }
             else if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
                 Log.v(TAG, "Back facing camera detected");
+                flashModeBtn.setVisibility(View.VISIBLE);
             }
         }
 
@@ -410,5 +421,33 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return mediaFile;
+    }
+
+    private void switchCameraFacing() {
+        // release the camera and stop preview
+        releaseCamera();
+
+        // If the camera is facing back, change cameraId to be front
+        // else get camera id for back facing camera
+
+        if(cameraId == Camera.CameraInfo.CAMERA_FACING_BACK) {
+            cameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
+            fadeButtonAnimation(flashModeBtn, 1.00F, 0.00F, 1000L);
+            flashModeBtn.setVisibility(View.GONE);
+        }
+        else {
+            cameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
+            fadeButtonAnimation(flashModeBtn, 0.00F, 1.00F, 1000L);
+            flashModeBtn.setVisibility(View.VISIBLE);
+        }
+
+        restartCamera(cameraId);
+    }
+
+    private void restartCamera(int cameraId) {
+        camera = getCameraInstance(cameraId);
+        cameraPreview = new CameraPreview(this, camera);
+        previewLayout = (FrameLayout) findViewById(R.id.fl_camera_preview);
+        previewLayout.addView(cameraPreview);
     }
 }
