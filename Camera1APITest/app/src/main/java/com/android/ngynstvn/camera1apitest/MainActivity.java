@@ -177,7 +177,7 @@ public class MainActivity extends AppCompatActivity {
         cameraSwitchBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                switchCameraFacing();
+//                switchCameraFacing();
             }
         });
 
