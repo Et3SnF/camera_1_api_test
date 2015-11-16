@@ -55,7 +55,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
      *
      */
 
-    private SurfaceView surfaceView;
     private Camera.Size previewSize;
     private SurfaceHolder surfaceHolder;
     private Camera camera = null;
@@ -65,14 +64,13 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private Camera.PictureCallback pictureCallback = new Camera.PictureCallback() {
         @Override
         public void onPictureTaken(byte[] data, Camera camera) {
-            File capturedImgFile = getOutputMediaFile(MEDIA_TYPE_IMAGE);
+            tempImageFile = getOutputMediaFile(MEDIA_TYPE_IMAGE);
 
-            if(capturedImgFile == null) {
+            if(tempImageFile == null) {
                 Log.e(TAG, "Error creating media file. Try again.");
                 return;
             }
 
-            tempImageFile = capturedImgFile;
             Log.v(TAG, "The image was captured but not saved.");
         }
     };
@@ -83,6 +81,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
      *
      */
 
+    private SurfaceView surfaceView;
+
     private RelativeLayout topIconsHolder;
     private Button exitCameraBtn;
 
@@ -91,10 +91,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private Button cameraSwitchBtn;
     private Button flashModeBtn;
 
-    private RelativeLayout cancelCapBtnHolder;
-    private View cancelCaptureBtn;
-    private RelativeLayout approveCapBtnHolder;
-    private View approveCaptureBtn;
+    private RelativeLayout cancelCaptureBtn;
+    private RelativeLayout approveCaptureBtn;
 
     DisplayMetrics displayMetrics = new DisplayMetrics();
     private long transDuration = 200L;
@@ -118,10 +116,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         captureButton = findViewById(R.id.v_pic_capture);
         cameraSwitchBtn = (Button) findViewById(R.id.btn_camera_switch);
         flashModeBtn = (Button) findViewById(R.id.btn_flash_mode);
-        cancelCapBtnHolder = (RelativeLayout) findViewById(R.id.rl_cancel_picture);
-        approveCapBtnHolder = (RelativeLayout) findViewById(R.id.rl_approve_pic);
-        cancelCaptureBtn = findViewById(R.id.v_pic_cancel);
-        approveCaptureBtn = findViewById(R.id.v_pic_approve);
+        cancelCaptureBtn = (RelativeLayout) findViewById(R.id.rl_cancel_picture);
+        approveCaptureBtn = (RelativeLayout) findViewById(R.id.rl_approve_pic);
 
         // Camera Material here
 
@@ -161,8 +157,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             @Override
             public void onClick(View v) {
 
-                takePhoto();
-
                 int upDownTransHeight = bottomIconsHolder.getMeasuredHeight();
 
                 moveVerticalAnimation(bottomIconsHolder, 0, upDownTransHeight, transDuration);
@@ -173,19 +167,19 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
                 topIconsHolder.setVisibility(View.GONE);
                 bottomIconsHolder.setVisibility(View.GONE);
 
-                cancelCapBtnHolder.setEnabled(true);
-                approveCapBtnHolder.setEnabled(true);
+                cancelCaptureBtn.setEnabled(true);
+                approveCaptureBtn.setEnabled(true);
 
-                int leftRightTransWidth = cancelCapBtnHolder.getMeasuredWidth();
+                int leftRightTransWidth = cancelCaptureBtn.getMeasuredWidth();
 
-                moveFadeAnimation(cancelCapBtnHolder, (-1 * leftRightTransWidth),
+                moveFadeAnimation(cancelCaptureBtn, (-1 * leftRightTransWidth),
                         displayMetrics.widthPixels, 0, 0, 0.00f, 1.00f, transDuration, fadeDuration);
 
-                moveFadeAnimation(approveCapBtnHolder, leftRightTransWidth, displayMetrics.widthPixels
+                moveFadeAnimation(approveCaptureBtn, leftRightTransWidth, displayMetrics.widthPixels
                         , 0, 0, 0.0f, 1.0f, transDuration, fadeDuration);
 
-                cancelCapBtnHolder.setVisibility(View.VISIBLE);
-                approveCapBtnHolder.setVisibility(View.VISIBLE);
+                cancelCaptureBtn.setVisibility(View.VISIBLE);
+                approveCaptureBtn.setVisibility(View.VISIBLE);
             }
         });
 
@@ -194,7 +188,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             public void onClick(View v) {
                 switchCameraIcons(isFrontFacing);
                 isFrontFacing = !isFrontFacing;
-//                switchCameraFacing();
             }
         });
 
@@ -208,19 +201,19 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         cancelCaptureBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                
-                int leftRightTransWidth = cancelCapBtnHolder.getMeasuredWidth();
 
-                moveFadeAnimation(cancelCapBtnHolder, displayMetrics.widthPixels
+                int leftRightTransWidth = cancelCaptureBtn.getMeasuredWidth();
+
+                moveFadeAnimation(cancelCaptureBtn, displayMetrics.widthPixels
                         , (-1 * leftRightTransWidth), 0, 0, 1.00f, 0.00F, transDuration, fadeDuration);
 
-                moveFadeAnimation(approveCapBtnHolder, displayMetrics.widthPixels
+                moveFadeAnimation(approveCaptureBtn, displayMetrics.widthPixels
                         , leftRightTransWidth, 0, 0, 1.00F, 0.00F, transDuration, fadeDuration);
 
-                cancelCapBtnHolder.setVisibility(View.GONE);
-                approveCapBtnHolder.setVisibility(View.GONE);
-                cancelCapBtnHolder.setEnabled(false);
-                approveCapBtnHolder.setEnabled(false);
+                cancelCaptureBtn.setVisibility(View.GONE);
+                approveCaptureBtn.setVisibility(View.GONE);
+                cancelCaptureBtn.setEnabled(false);
+                approveCaptureBtn.setEnabled(false);
 
                 bottomIconsHolder.setEnabled(true);
                 topIconsHolder.setEnabled(true);
@@ -525,9 +518,11 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
+        Log.e(TAG, "surfaceCreated() called");
         // Display the preview
 
         try {
+            camera = getCameraInstance(cameraId);
             camera.setPreviewDisplay(surfaceHolder);
         } catch (IOException e) {
             Log.e(TAG, "There was an issue displaying the preview: " + e.getMessage());
@@ -537,6 +532,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        Log.e(TAG, "surfaceChanged() called");
+
         if(surfaceHolder.getSurface() == null) {
             Log.e(TAG, "Preview Surface does not exist");
             return;
@@ -576,6 +573,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
+        Log.e(TAG, "surfaceDestroyed() called");
+
         // Being taken care of by releaseCamera();
     }
 }
