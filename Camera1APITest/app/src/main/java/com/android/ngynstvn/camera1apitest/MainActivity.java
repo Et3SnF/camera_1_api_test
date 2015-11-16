@@ -1,7 +1,9 @@
 package com.android.ngynstvn.camera1apitest;
 
+import android.annotation.TargetApi;
 import android.content.pm.PackageManager;
 import android.hardware.Camera;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
@@ -12,7 +14,9 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
 import android.view.animation.AnimationSet;
+import android.view.animation.RotateAnimation;
 import android.view.animation.TranslateAnimation;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -89,6 +93,7 @@ public class MainActivity extends AppCompatActivity {
     DisplayMetrics displayMetrics = new DisplayMetrics();
     private long transDuration = 200L;
     private long fadeDuration = 600L;
+    private boolean isFrontFacing = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -176,6 +181,8 @@ public class MainActivity extends AppCompatActivity {
         cameraSwitchBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                switchCameraIcons(isFrontFacing);
+                isFrontFacing = !isFrontFacing;
 //                switchCameraFacing();
             }
         });
@@ -302,15 +309,46 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private void fadeViewAnimation(View view, float fromAlpha, float toAlpha, long time1) {
+    private void fadeRotateViewAnimation(View view, float fromAlpha, float toAlpha, long time1) {
         AnimationSet animationSet = new AnimationSet(true);
         AlphaAnimation fadeAnimation = new AlphaAnimation(fromAlpha, toAlpha);
+        RotateAnimation rotateAnimation = new RotateAnimation(0, 360, Animation.RELATIVE_TO_SELF,
+                0.50F, Animation.RELATIVE_TO_SELF, 0.50F);
 
         fadeAnimation.setDuration(time1);
+        rotateAnimation.setDuration(time1);
 
         animationSet.addAnimation(fadeAnimation);
+        animationSet.addAnimation(rotateAnimation);
 
         view.startAnimation(animationSet);
+    }
+
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
+    private void switchCameraIcons(boolean isFrontFacing) {
+
+        Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
+        if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+            isFrontFacing = true;
+        }
+        else if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK){
+            isFrontFacing = false;
+        }
+
+        if(isFrontFacing) {
+            fadeRotateViewAnimation(cameraSwitchBtn, 1.00F, 0.00F, 400L);
+            cameraSwitchBtn.setVisibility(View.GONE);
+            cameraSwitchBtn.setBackground(getResources().getDrawable(R.drawable.ic_camera_rear_white_24dp));
+            fadeRotateViewAnimation(cameraSwitchBtn, 0.00F, 1.00F, 400L);
+            cameraSwitchBtn.setVisibility(View.VISIBLE);
+        }
+        else {
+            fadeRotateViewAnimation(cameraSwitchBtn, 1.00F, 0.00F, 400L);
+            cameraSwitchBtn.setVisibility(View.GONE);
+            cameraSwitchBtn.setBackground(getResources().getDrawable(R.drawable.ic_camera_front_white_24dp));
+            fadeRotateViewAnimation(cameraSwitchBtn, 0.00F, 1.00F, 400L);
+            cameraSwitchBtn.setVisibility(View.VISIBLE);
+        }
     }
 
     /**
@@ -424,12 +462,12 @@ public class MainActivity extends AppCompatActivity {
 
         if(cameraId == Camera.CameraInfo.CAMERA_FACING_BACK) {
             cameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
-            fadeViewAnimation(flashModeBtn, 1.00F, 0.00F, 1000L);
+            fadeRotateViewAnimation(flashModeBtn, 1.00F, 0.00F, 700L);
             flashModeBtn.setVisibility(View.GONE);
         }
         else {
             cameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
-            fadeViewAnimation(flashModeBtn, 0.00F, 1.00F, 1000L);
+            fadeRotateViewAnimation(flashModeBtn, 0.00F, 1.00F, 700L);
             flashModeBtn.setVisibility(View.VISIBLE);
         }
 
