@@ -21,7 +21,6 @@ import android.view.animation.AnimationSet;
 import android.view.animation.RotateAnimation;
 import android.view.animation.TranslateAnimation;
 import android.widget.Button;
-import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
@@ -62,7 +61,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     private Camera camera = null;
     private int cameraId = -1;
     private int cameraOrientation;
-    private CameraPreview cameraPreview;
     private File tempImageFile;
     private Camera.PictureCallback pictureCallback = new Camera.PictureCallback() {
         @Override
@@ -85,7 +83,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
      *
      */
 
-    private FrameLayout previewLayout;
     private RelativeLayout topIconsHolder;
     private Button exitCameraBtn;
 
@@ -112,13 +109,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        surfaceHolder = getHolder();
-        surfaceHolder.addCallback(this);
-        surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-
         // Basically get this whole cycle working...it all starts with TextureView
 
-        previewLayout = (FrameLayout) findViewById(R.id.fl_camera_preview);
+        surfaceView = (SurfaceView) findViewById(R.id.sv_camera_preview);
         topIconsHolder = (RelativeLayout) findViewById(R.id.rl_top_icons);
         exitCameraBtn = (Button) findViewById(R.id.btn_exit_camera);
         bottomIconsHolder = (RelativeLayout) findViewById(R.id.rl_bottom_icons);
@@ -138,8 +131,10 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             Log.v(TAG, "Current cameraId: " + cameraId);
 
             camera = getCameraInstance(cameraId);
-            cameraPreview = new CameraPreview(this, camera);
-            previewLayout.addView(cameraPreview);
+
+            surfaceHolder = surfaceView.getHolder();
+            surfaceHolder.addCallback(this);
+            surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 
             if(camera != null) {
                 Log.e(TAG, "Camera Instance is not null");
@@ -156,6 +151,9 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         exitCameraBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                if(!isTaskRoot()) {
+                    finish();
+                }
             }
         });
 
@@ -261,9 +259,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
             setContentView(R.layout.activity_main);
             cameraId = getCurrentCameraId();
             camera = getCameraInstance(cameraId);
-            cameraPreview = new CameraPreview(this, camera);
-            previewLayout = (FrameLayout) findViewById(R.id.fl_camera_preview);
-            previewLayout.addView(cameraPreview);
         }
     }
 
@@ -424,9 +419,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         if(camera != null) {
             camera.release();
             camera = null;
-            cameraPreview = null;
-            previewLayout.removeAllViews();
-            previewLayout = null;
         }
     }
 
@@ -489,9 +481,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     private void restartCamera(int cameraId) {
         camera = getCameraInstance(cameraId);
-        cameraPreview = new CameraPreview(this, camera);
-        previewLayout = (FrameLayout) findViewById(R.id.fl_camera_preview);
-        previewLayout.addView(cameraPreview);
+        surfaceView = (SurfaceView) findViewById(R.id.sv_camera_preview);
     }
 
     private Camera.Size getPreferredPreviewSize(int width, int height, Camera.Parameters parameters) {
@@ -535,6 +525,8 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
+        // Display the preview
+
         try {
             camera.setPreviewDisplay(surfaceHolder);
         } catch (IOException e) {
@@ -545,11 +537,45 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        if(surfaceHolder.getSurface() == null) {
+            Log.e(TAG, "Preview Surface does not exist");
+            return;
+        }
 
+        // Stop this preview before making changes such as rotation
+
+        try {
+            camera.stopPreview();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // Whatever preview size is here
+
+        Camera.Parameters parameters = camera.getParameters();
+        previewSize = getPreferredPreviewSize(width, height, parameters);
+        Log.v(TAG, "Current Preview Size: (" + previewSize.width + ", " + previewSize.height + ")");
+
+        if(previewSize != null) {
+            parameters.setPreviewSize(previewSize.width, previewSize.height);
+            camera.setParameters(parameters);
+        }
+
+        camera.setDisplayOrientation(90);
+
+        // Then display changes
+        try {
+            camera.setPreviewDisplay(surfaceHolder);
+            camera.startPreview();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-
+        // Being taken care of by releaseCamera();
     }
 }
