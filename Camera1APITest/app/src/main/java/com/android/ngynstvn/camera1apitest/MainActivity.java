@@ -7,7 +7,6 @@ import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.util.DisplayMetrics;
 import android.util.Log;
-import android.view.Surface;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -21,6 +20,7 @@ import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -117,15 +117,28 @@ public class MainActivity extends AppCompatActivity {
 
         if(isCameraHardwareAvailable()) {
             Log.v(TAG, "Camera hardware is available.");
-            startCamera();
+            cameraId = getCurrentCameraId();
+            Log.v(TAG, "Current cameraId: " + cameraId);
+
+            camera = getCameraInstance(cameraId);
+            cameraPreview = new CameraPreview(this, camera);
+            previewLayout.addView(cameraPreview);
+
+            if(camera != null) {
+                Log.e(TAG, "Camera Instance is not null");
+            }
+            else {
+                Log.e(TAG, "Camera is null. Ending activity.");
+                if(!isTaskRoot()) {
+                    finish();
+                }
+                return;
+            }
         }
 
         exitCameraBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(!isTaskRoot()) {
-                    finish();
-                }
             }
         });
 
@@ -179,6 +192,14 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
 
+                try {
+                    camera.reconnect();
+
+                }
+                catch (IOException e) {
+                    e.printStackTrace();
+                }
+
                 int leftRightTransWidth = cancelCapBtnHolder.getMeasuredWidth();
 
                 moveFadeAnimation(cancelCapBtnHolder, displayMetrics.widthPixels
@@ -227,7 +248,12 @@ public class MainActivity extends AppCompatActivity {
 
         if(camera == null) {
             setContentView(R.layout.activity_main);
-            startCamera();
+            cameraId = getCurrentCameraId();
+            camera = getCameraInstance(cameraId);
+            camera.setDisplayOrientation(90);
+            cameraPreview = new CameraPreview(this, camera);
+            previewLayout = (FrameLayout) findViewById(R.id.fl_camera_preview);
+            previewLayout.addView(cameraPreview);
         }
     }
 
@@ -340,61 +366,6 @@ public class MainActivity extends AppCompatActivity {
         return cameraId;
     }
 
-    private void setCameraDisplayOrientaiton() {
-        Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
-        Camera.getCameraInfo(cameraId, cameraInfo);
-
-        int rotation = getWindowManager().getDefaultDisplay().getRotation();
-        int degrees = 0;
-
-        switch (rotation) {
-            case Surface.ROTATION_0:
-                degrees = 90;
-                break;
-            case  Surface.ROTATION_90:
-                degrees = 0;
-                break;
-            case  Surface.ROTATION_180:
-                degrees = 90;
-                break;
-            case  Surface.ROTATION_270:
-                degrees = 0;
-                break;
-        }
-
-        if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-            cameraOrientation = (cameraInfo.orientation + degrees) % 360;
-            cameraOrientation = (360 - cameraOrientation) % 360;
-        }
-        else {
-            cameraOrientation = (cameraInfo.orientation - degrees + 360) % 360;
-        }
-
-        camera.setDisplayOrientation(cameraOrientation);
-    }
-
-    private void startCamera() {
-        setContentView(R.layout.activity_main);
-        cameraId = getCurrentCameraId();
-        Log.v(TAG, "Current cameraId: " + cameraId);
-
-        camera = getCameraInstance(cameraId);
-        cameraPreview = new CameraPreview(this, camera);
-        camera.setDisplayOrientation(90);
-        previewLayout.addView(cameraPreview);
-
-        if(camera != null) {
-            Log.e(TAG, "Camera Instance is not null");
-        }
-        else {
-            Log.e(TAG, "Camera is null. Ending activity.");
-            if(isTaskRoot()) {
-                finish();
-            }
-            return;
-        }
-    }
-
     private void releaseCamera() {
         if(camera != null) {
             camera.release();
@@ -409,8 +380,6 @@ public class MainActivity extends AppCompatActivity {
         if(camera != null) {
             camera.takePicture(null, null, pictureCallback);
         }
-
-        releaseCamera();
     }
 
     private static File getOutputMediaFile(int type){
@@ -424,7 +393,7 @@ public class MainActivity extends AppCompatActivity {
         // Create the storage directory if it does not exist
         if (! storageDirectory.exists()){
             if (! storageDirectory.mkdirs()){
-                Log.d("MyCameraApp", "failed to create directory");
+                Log.d(TAG, "Unable to create directory.");
                 return null;
             }
         }
