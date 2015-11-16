@@ -302,13 +302,15 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private void fadeButtonAnimation(View view, float fromAlpha, float toAlpha, long time1) {
+    private void fadeViewAnimation(View view, float fromAlpha, float toAlpha, long time1) {
         AnimationSet animationSet = new AnimationSet(true);
         AlphaAnimation fadeAnimation = new AlphaAnimation(fromAlpha, toAlpha);
 
         fadeAnimation.setDuration(time1);
 
-        view.setAnimation(animationSet);
+        animationSet.addAnimation(fadeAnimation);
+
+        view.startAnimation(animationSet);
     }
 
     /**
@@ -422,12 +424,12 @@ public class MainActivity extends AppCompatActivity {
 
         if(cameraId == Camera.CameraInfo.CAMERA_FACING_BACK) {
             cameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
-            fadeButtonAnimation(flashModeBtn, 1.00F, 0.00F, 1000L);
+            fadeViewAnimation(flashModeBtn, 1.00F, 0.00F, 1000L);
             flashModeBtn.setVisibility(View.GONE);
         }
         else {
             cameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
-            fadeButtonAnimation(flashModeBtn, 0.00F, 1.00F, 1000L);
+            fadeViewAnimation(flashModeBtn, 0.00F, 1.00F, 1000L);
             flashModeBtn.setVisibility(View.VISIBLE);
         }
 
