@@ -10,7 +10,6 @@ import android.hardware.Camera;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -246,91 +245,81 @@ public class MainActivity extends AppCompatActivity {
         BPUtils.logMethod(CLASS_TAG);
         super.onResume();
 
-        Handler handler = new Handler();
+        if(isCameraHardwareAvailable()) {
+            currentCameraId = getCurrentCameraId();
+            Log.v(TAG, "Current Camera ID: " + currentCameraId);
 
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
+            if(currentCameraId != -1) {
+                surfaceView = new SurfaceView(MainActivity.this);
+                previewLayout.addView(surfaceView);
+                openCamera(currentCameraId);
+                surfaceHolder = surfaceView.getHolder();
+                surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+                surfaceHolder.addCallback(new SurfaceHolder.Callback() {
+                    @Override
+                    public void surfaceCreated(SurfaceHolder holder) {
+                        BPUtils.logMethod(CLASS_TAG);
+                        // When the Surface is created, set the preview display. Don't start it here.
 
-                BPUtils.logMethod(CLASS_TAG);
-
-                if(isCameraHardwareAvailable()) {
-                    currentCameraId = getCurrentCameraId();
-                    Log.v(TAG, "Current Camera ID: " + currentCameraId);
-
-                    if(currentCameraId != -1) {
-                        surfaceView = new SurfaceView(MainActivity.this);
-                        previewLayout.addView(surfaceView);
-                        openCamera(currentCameraId);
-                        surfaceHolder = surfaceView.getHolder();
-                        surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-                        surfaceHolder.addCallback(new SurfaceHolder.Callback() {
-                            @Override
-                            public void surfaceCreated(SurfaceHolder holder) {
-                                BPUtils.logMethod(CLASS_TAG);
-                                // When the Surface is created, set the preview display. Don't start it here.
-
-                                try {
-                                    if(camera != null) {
-                                        camera.setPreviewDisplay(holder);
-                                    }
-                                }
-                                catch (IOException e) {
-                                    Log.e(TAG, "There was an error setting up the preview display");
-                                    e.printStackTrace();
-                                }
+                        try {
+                            if(camera != null) {
+                                camera.setPreviewDisplay(holder);
                             }
-
-                            @Override
-                            public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-                                BPUtils.logMethod(CLASS_TAG);
-                                // When the Surface is displayed for the first time, it calls this. Start preview here.
-                                // Tell Surface client how big the drawing area will be (preview size)
-
-                                if(camera == null) {
-                                    Log.e(TAG, "Camera is null inside surfaceChanged()");
-                                    return;
-                                }
-
-                                Camera.Parameters cameraParameters = camera.getParameters();
-                                previewSize = getPreferredPreviewSize(width, height, cameraParameters);
-                                Log.v(TAG, "Current Preview Size: (" + previewSize.width + ", " + previewSize.height + ")");
-
-                                cameraParameters.setPreviewSize(previewSize.width, previewSize.height);
-                                camera.setParameters(cameraParameters);
-
-                                try {
-                                    int rotation = getWindowManager().getDefaultDisplay().getRotation();
-                                    camera.setDisplayOrientation(ORIENTATION_FIX.get(rotation));
-                                    camera.startPreview();
-                                }
-                                catch (Exception e) {
-                                    Log.e(TAG, "Camera was unable to start preview");
-                                    e.printStackTrace();
-                                    releaseCamera();
-                                }
-                            }
-
-                            @Override
-                            public void surfaceDestroyed(SurfaceHolder holder) {
-                                BPUtils.logMethod(CLASS_TAG);
-                                // Handled by onPause()
-                                // onPause() gets called before this.
-                            }
-                        });
+                        }
+                        catch (IOException e) {
+                            Log.e(TAG, "There was an error setting up the preview display");
+                            e.printStackTrace();
+                        }
                     }
-                }
-                else {
-                    Log.e(TAG, "No camera hardware detected in the device.");
 
-                    ErrorDialog.newInstance(ERROR_NO_CAMERA_HARDWARE).show(getFragmentManager(), "no_cam_hardware");
+                    @Override
+                    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+                        BPUtils.logMethod(CLASS_TAG);
+                        // When the Surface is displayed for the first time, it calls this. Start preview here.
+                        // Tell Surface client how big the drawing area will be (preview size)
 
-                    if(!isTaskRoot()) {
-                        finish();
+                        if(camera == null) {
+                            Log.e(TAG, "Camera is null inside surfaceChanged()");
+                            return;
+                        }
+
+                        Camera.Parameters cameraParameters = camera.getParameters();
+                        previewSize = getPreferredPreviewSize(width, height, cameraParameters);
+                        Log.v(TAG, "Current Preview Size: (" + previewSize.width + ", " + previewSize.height + ")");
+
+                        cameraParameters.setPreviewSize(previewSize.width, previewSize.height);
+                        camera.setParameters(cameraParameters);
+
+                        try {
+                            int rotation = getWindowManager().getDefaultDisplay().getRotation();
+                            camera.setDisplayOrientation(ORIENTATION_FIX.get(rotation));
+                            camera.startPreview();
+                        }
+                        catch (Exception e) {
+                            Log.e(TAG, "Camera was unable to start preview");
+                            e.printStackTrace();
+                            releaseCamera();
+                        }
                     }
-                }
+
+                    @Override
+                    public void surfaceDestroyed(SurfaceHolder holder) {
+                        BPUtils.logMethod(CLASS_TAG);
+                        // Handled by onPause()
+                        // onPause() gets called before this.
+                    }
+                });
             }
-        });
+        }
+        else {
+            Log.e(TAG, "No camera hardware detected in the device.");
+
+            ErrorDialog.newInstance(ERROR_NO_CAMERA_HARDWARE).show(getFragmentManager(), "no_cam_hardware");
+
+            if(!isTaskRoot()) {
+                finish();
+            }
+        }
     }
 
     @Override
