@@ -26,6 +26,7 @@ import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,21 +35,20 @@ import java.util.Date;
 
 public class MainActivity extends AppCompatActivity implements SurfaceHolder.Callback {
 
+    private static final String TAG = "(" + MainActivity.class.getSimpleName() + "): ";
+    private static final int MEDIA_TYPE_IMAGE = 1;
+
     /**
      * STEPS TO SETTING UP CAMERA 1
      *
-     * 1. Open the Camera object. Detect and access camera
-     * 2. Create the camera preview
-     * 3. Modify camera settings
-     * 4. Set the preview orientation
-     * 5. Take a picture
-     * 6. Restart the preview
-     * 7. Stop the camera preview and release the camera
+     * 1. Detect and access camera
+     * 2. Create Preview Class (SurfaceView and something that implements SurfaceHolder interface)
+     * 3. Build a Preview Layout
+     * 4. Set up listeners for capture
+     * 5. Capture and save files
+     * 6. Release the camera (Camera.release())
      *
      */
-
-    private static final String TAG = "(" + MainActivity.class.getSimpleName() + "): ";
-    private static final int MEDIA_TYPE_IMAGE = 1;
 
     /**
      *
@@ -56,12 +56,25 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
      *
      */
 
-    private boolean isCameraOpened = false;
-    private Camera camera = null;
+    private Camera.Size previewSize;
     private SurfaceHolder surfaceHolder;
-    private Camera.Size previewSize = null;
-    private int currentCameraId = -1;
+    private Camera camera = null;
+    private int cameraId = -1;
+    private int cameraOrientation;
     private File tempImageFile;
+    private Camera.PictureCallback pictureCallback = new Camera.PictureCallback() {
+        @Override
+        public void onPictureTaken(byte[] data, Camera camera) {
+            tempImageFile = getOutputMediaFile(MEDIA_TYPE_IMAGE);
+
+            if(tempImageFile == null) {
+                Log.e(TAG, "Error creating media file. Try again.");
+                return;
+            }
+
+            Log.v(TAG, "The image was captured but not saved.");
+        }
+    };
 
     /**
      *
@@ -107,6 +120,31 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         cancelCaptureBtn = (RelativeLayout) findViewById(R.id.rl_cancel_picture);
         approveCaptureBtn = (RelativeLayout) findViewById(R.id.rl_approve_pic);
 
+        // Camera Material here
+
+        if(isCameraHardwareAvailable()) {
+            Log.v(TAG, "Camera hardware is available.");
+            cameraId = getCurrentCameraId();
+            Log.v(TAG, "Current cameraId: " + cameraId);
+
+            camera = getCameraInstance(cameraId);
+
+            surfaceHolder = surfaceView.getHolder();
+            surfaceHolder.addCallback(this);
+            surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+
+            if(camera != null) {
+                Log.e(TAG, "Camera Instance is not null");
+            }
+            else {
+                Log.e(TAG, "Camera is null. Ending activity.");
+                if(!isTaskRoot()) {
+                    finish();
+                }
+                return;
+            }
+        }
+
         exitCameraBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -119,6 +157,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         captureButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+
 
                 int upDownTransHeight = bottomIconsHolder.getMeasuredHeight();
 
@@ -210,11 +249,18 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     protected void onResume() {
         Log.e(TAG, "onResume() called");
         super.onResume();
+
+        if(camera == null) {
+            setContentView(R.layout.activity_main);
+            cameraId = getCurrentCameraId();
+            camera = getCameraInstance(cameraId);
+        }
     }
 
     @Override
     protected void onPause() {
         Log.e(TAG, "onPause() called");
+        releaseCamera();
         super.onPause();
     }
 
@@ -234,184 +280,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     protected void onDestroy() {
         Log.e(TAG, "onDestroy() called");
         super.onDestroy();
-    }
-
-    /**
-     *
-     * Camera Methods
-     *
-     */
-
-    /*
-    *
-    * Open and Close camera objects
-    *
-    * */
-
-    private boolean isCameraHardwareAvailable() {
-        return getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA);
-    }
-
-    private int getCurrentCameraId() {
-
-        int cameraId = -1;
-        int numOfCameras = Camera.getNumberOfCameras();
-
-        if(numOfCameras == 0) {
-            Log.e(TAG, "There are no cameras on this phone.");
-            Toast.makeText(this, "There are no cameras on this phone", Toast.LENGTH_SHORT).show();
-            return cameraId;
-        }
-
-        // Get camera Ids
-
-        for(int i = 0; i < numOfCameras; i++) {
-            Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
-            Camera.getCameraInfo(i, cameraInfo);
-
-            if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-                Log.v(TAG, "Front facing camera detected");
-                cameraId = i;
-                flashModeBtn.setVisibility(View.GONE);
-            }
-            else if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
-                Log.v(TAG, "Back facing camera detected");
-                flashModeBtn.setVisibility(View.VISIBLE);
-            }
-        }
-
-        return cameraId;
-    }
-
-    private Camera.Size getPreferredPreviewSize(int width, int height, Camera.Parameters parameters) {
-
-        ArrayList<Camera.Size> supportedPreviewSizes = (ArrayList<Camera.Size>) parameters.getSupportedPreviewSizes();
-
-        for(Camera.Size option : supportedPreviewSizes) {
-            //Landscape Preview Sizes
-
-            if(width > height) {
-
-                if(option.width > width && option.height > height) {
-                    supportedPreviewSizes.add(option);
-                }
-
-            }
-            else {
-                if(option.width > height && option.height > width) {
-                    supportedPreviewSizes.add(option);
-                }
-            }
-        }
-
-        if(supportedPreviewSizes.size() > 0) {
-            return Collections.max(supportedPreviewSizes, new Comparator<Camera.Size>() {
-                @Override
-                public int compare(Camera.Size lhs, Camera.Size rhs) {
-                    return Long.signum(lhs.width * lhs.height - rhs.width * rhs.height);
-                }
-            });
-        }
-
-        return parameters.getSupportedPreviewSizes().get(0);
-    }
-
-    private void switchCameraFacing() {
-        // release the camera and stop preview
-
-
-        // If the camera is facing back, change cameraId to be front
-        // else get camera id for back facing camera
-
-        if(currentCameraId == Camera.CameraInfo.CAMERA_FACING_BACK) {
-            currentCameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
-            fadeRotateViewAnimation(flashModeBtn, 1.00F, 0.00F, 700L);
-            flashModeBtn.setVisibility(View.GONE);
-        }
-        else {
-            currentCameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
-            fadeRotateViewAnimation(flashModeBtn, 0.00F, 1.00F, 700L);
-            flashModeBtn.setVisibility(View.VISIBLE);
-        }
-    }
-
-    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
-    private void switchCameraIcons(boolean isFrontFacing) {
-        Log.v(TAG, "switchCameraIcons() called");
-        Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
-        if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-            isFrontFacing = true;
-        }
-        else if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK){
-            isFrontFacing = false;
-        }
-
-        if(isFrontFacing) {
-            fadeRotateViewAnimation(cameraSwitchBtn, 1.00F, 0.00F, 400L);
-            cameraSwitchBtn.setVisibility(View.GONE);
-            cameraSwitchBtn.setBackground(getResources().getDrawable(R.drawable.ic_camera_rear_white_24dp));
-            fadeRotateViewAnimation(cameraSwitchBtn, 0.00F, 1.00F, 400L);
-            cameraSwitchBtn.setVisibility(View.VISIBLE);
-        }
-        else {
-            fadeRotateViewAnimation(cameraSwitchBtn, 1.00F, 0.00F, 400L);
-            cameraSwitchBtn.setVisibility(View.GONE);
-            cameraSwitchBtn.setBackground(getResources().getDrawable(R.drawable.ic_camera_front_white_24dp));
-            fadeRotateViewAnimation(cameraSwitchBtn, 0.00F, 1.00F, 400L);
-            cameraSwitchBtn.setVisibility(View.VISIBLE);
-        }
-    }
-
-    private static File getOutputMediaFile(int type){
-        // To be safe, you should check that the SDCard is mounted
-        // using Environment.getExternalStorageState() before doing this.
-
-        File storageDirectory = new File(Environment.getExternalStorageDirectory() + "/Blocparty/");
-        // This location works best if you want the created images to be shared
-        // between applications and persist after your app has been uninstalled.
-
-        // Create the storage directory if it does not exist
-        if (! storageDirectory.exists()){
-            if (! storageDirectory.mkdirs()){
-                Log.d(TAG, "Unable to create directory.");
-                return null;
-            }
-        }
-
-        // Create a media file name
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        File mediaFile;
-        if (type == MEDIA_TYPE_IMAGE){
-            mediaFile = new File(storageDirectory.getPath() + File.separator +
-                    "IMG_"+ timeStamp + ".jpg");
-        }
-        else {
-            return null;
-        }
-
-        return mediaFile;
-    }
-
-    /**
-     *
-     * SurfaceHolder.Callback Implemented Methods
-     *
-     */
-
-    @Override
-    public void surfaceCreated(SurfaceHolder holder) {
-        Log.v(TAG, "surfaceCreated() called");
-
-    }
-
-    @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        Log.v(TAG, "surfaceChanged() called");
-    }
-
-    @Override
-    public void surfaceDestroyed(SurfaceHolder holder) {
-        Log.v(TAG, "surfaceDestroyed() called");
     }
 
     /**
@@ -474,5 +342,261 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         animationSet.addAnimation(fadeOutAnimation);
 
         view.startAnimation(animationSet);
+    }
+
+    /**
+     *
+     * Camera Methods
+     *
+     */
+
+    private void previewCaptureFlashAnimation(View view) {
+        quickFadeInOutAnimation(view, 0.00F, 0.05F, 150L, 150L);
+    }
+
+    private boolean isCameraHardwareAvailable() {
+        return getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA);
+    }
+
+    private Camera getCameraInstance(int cameraId) {
+
+        if(isCameraHardwareAvailable()) {
+            try {
+                return Camera.open(cameraId);
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    private int getCurrentCameraId() {
+
+        int cameraId = -1;
+        int numOfCameras = Camera.getNumberOfCameras();
+
+        if(numOfCameras == 0) {
+            Log.e(TAG, "There are no cameras on this phone.");
+            Toast.makeText(this, "There are no cameras on this phone", Toast.LENGTH_SHORT).show();
+            return cameraId;
+        }
+
+        // Get camera Ids
+
+        for(int i = 0; i < numOfCameras; i++) {
+            Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
+            Camera.getCameraInfo(i, cameraInfo);
+
+            if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+                Log.v(TAG, "Front facing camera detected");
+                cameraId = i;
+                flashModeBtn.setVisibility(View.GONE);
+            }
+            else if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
+                Log.v(TAG, "Back facing camera detected");
+                flashModeBtn.setVisibility(View.VISIBLE);
+            }
+        }
+
+        return cameraId;
+    }
+
+    private void releaseCamera() {
+        if(camera != null) {
+            camera.release();
+            camera = null;
+        }
+    }
+
+    private void takePhoto() {
+        if(camera != null) {
+            camera.takePicture(null, null, pictureCallback);
+        }
+    }
+
+    private static File getOutputMediaFile(int type){
+        // To be safe, you should check that the SDCard is mounted
+        // using Environment.getExternalStorageState() before doing this.
+
+        File storageDirectory = new File(Environment.getExternalStorageDirectory() + "/Blocparty/");
+        // This location works best if you want the created images to be shared
+        // between applications and persist after your app has been uninstalled.
+
+        // Create the storage directory if it does not exist
+        if (! storageDirectory.exists()){
+            if (! storageDirectory.mkdirs()){
+                Log.d(TAG, "Unable to create directory.");
+                return null;
+            }
+        }
+
+        // Create a media file name
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        File mediaFile;
+        if (type == MEDIA_TYPE_IMAGE){
+            mediaFile = new File(storageDirectory.getPath() + File.separator +
+                    "IMG_"+ timeStamp + ".jpg");
+        }
+        else {
+            return null;
+        }
+
+        return mediaFile;
+    }
+
+    private void switchCameraFacing() {
+        // release the camera and stop preview
+        releaseCamera();
+
+        // If the camera is facing back, change cameraId to be front
+        // else get camera id for back facing camera
+
+        if(cameraId == Camera.CameraInfo.CAMERA_FACING_BACK) {
+            cameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
+            fadeRotateViewAnimation(flashModeBtn, 1.00F, 0.00F, 700L);
+            flashModeBtn.setVisibility(View.GONE);
+        }
+        else {
+            cameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
+            fadeRotateViewAnimation(flashModeBtn, 0.00F, 1.00F, 700L);
+            flashModeBtn.setVisibility(View.VISIBLE);
+        }
+
+        restartCamera(cameraId);
+    }
+
+    private void restartCamera(int cameraId) {
+        camera = getCameraInstance(cameraId);
+        surfaceView = (SurfaceView) findViewById(R.id.sv_camera_preview);
+    }
+
+    private Camera.Size getPreferredPreviewSize(int width, int height, Camera.Parameters parameters) {
+
+        ArrayList<Camera.Size> supportedPreviewSizes = (ArrayList<Camera.Size>) parameters.getSupportedPreviewSizes();
+
+        for(Camera.Size option : supportedPreviewSizes) {
+            //Landscape Preview Sizes
+
+            if(width > height) {
+
+                if(option.width > width && option.height > height) {
+                    supportedPreviewSizes.add(option);
+                }
+
+            }
+            else {
+                if(option.width > height && option.height > width) {
+                    supportedPreviewSizes.add(option);
+                }
+            }
+        }
+
+        if(supportedPreviewSizes.size() > 0) {
+            return Collections.max(supportedPreviewSizes, new Comparator<Camera.Size>() {
+                @Override
+                public int compare(Camera.Size lhs, Camera.Size rhs) {
+                    return Long.signum(lhs.width * lhs.height - rhs.width * rhs.height);
+                }
+            });
+        }
+
+        return parameters.getSupportedPreviewSizes().get(0);
+    }
+
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
+    private void switchCameraIcons(boolean isFrontFacing) {
+
+        Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
+        if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+            isFrontFacing = true;
+        }
+        else if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK){
+            isFrontFacing = false;
+        }
+
+        if(isFrontFacing) {
+            fadeRotateViewAnimation(cameraSwitchBtn, 1.00F, 0.00F, 400L);
+            cameraSwitchBtn.setVisibility(View.GONE);
+            cameraSwitchBtn.setBackground(getResources().getDrawable(R.drawable.ic_camera_rear_white_24dp));
+            fadeRotateViewAnimation(cameraSwitchBtn, 0.00F, 1.00F, 400L);
+            cameraSwitchBtn.setVisibility(View.VISIBLE);
+        }
+        else {
+            fadeRotateViewAnimation(cameraSwitchBtn, 1.00F, 0.00F, 400L);
+            cameraSwitchBtn.setVisibility(View.GONE);
+            cameraSwitchBtn.setBackground(getResources().getDrawable(R.drawable.ic_camera_front_white_24dp));
+            fadeRotateViewAnimation(cameraSwitchBtn, 0.00F, 1.00F, 400L);
+            cameraSwitchBtn.setVisibility(View.VISIBLE);
+        }
+    }
+
+    /**
+     *
+     * SurfaceHolder.Callback Listener
+     *
+     */
+
+    @Override
+    public void surfaceCreated(SurfaceHolder holder) {
+        Log.e(TAG, "surfaceCreated() called");
+        // Display the preview
+
+        try {
+            camera.setPreviewDisplay(surfaceHolder);
+        } catch (IOException e) {
+            Log.e(TAG, "There was an issue displaying the preview: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        Log.e(TAG, "surfaceChanged() called");
+
+        if(surfaceHolder.getSurface() == null) {
+            Log.e(TAG, "Preview Surface does not exist");
+            return;
+        }
+
+        // Stop this preview before making changes such as rotation
+
+        try {
+            camera.stopPreview();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // Whatever preview size is here
+
+        Camera.Parameters parameters = camera.getParameters();
+        previewSize = getPreferredPreviewSize(width, height, parameters);
+        Log.v(TAG, "Current Preview Size: (" + previewSize.width + ", " + previewSize.height + ")");
+
+        if(previewSize != null) {
+            parameters.setPreviewSize(previewSize.width, previewSize.height);
+            camera.setParameters(parameters);
+        }
+
+        camera.setDisplayOrientation(90);
+
+        // Then display changes
+        try {
+            camera.setPreviewDisplay(surfaceHolder);
+            camera.startPreview();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void surfaceDestroyed(SurfaceHolder holder) {
+        Log.e(TAG, "surfaceDestroyed() called");
+
+        // Being taken care of by releaseCamera();
     }
 }
