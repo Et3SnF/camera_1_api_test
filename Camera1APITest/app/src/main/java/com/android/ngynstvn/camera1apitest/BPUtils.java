@@ -178,4 +178,11 @@ public class BPUtils {
         String message = stackTraceElements[3].getMethodName() + "() called | Thread: " + Thread.currentThread().getName();
         Log.e(classTag, message);
     }
+
+    public static void logMethod(String className, String additional) {
+        final StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+        String classTag = "(" + className + ")";
+        String message = additional + "'s " + stackTraceElements[3].getMethodName() + "() called | Thread: " + Thread.currentThread().getName();
+        Log.e(classTag, message);
+    }
 }
