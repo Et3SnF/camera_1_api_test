@@ -56,6 +56,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
      *
      */
 
+    private boolean isCameraOpened = false;
     private Camera.Size previewSize;
     private SurfaceHolder surfaceHolder;
     private Camera camera = null;
@@ -249,12 +250,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     protected void onResume() {
         Log.e(TAG, "onResume() called");
         super.onResume();
-
-        if(camera == null) {
-            setContentView(R.layout.activity_main);
-            cameraId = getCurrentCameraId();
-            camera = getCameraInstance(cameraId);
-        }
+        isCameraOpened = isCameraOpenedSafely(getCurrentCameraId());
     }
 
     @Override
@@ -371,6 +367,21 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         }
 
         return null;
+    }
+
+    private boolean isCameraOpenedSafely(int cameraId) {
+        boolean qOpened = false;
+
+        try {
+            releaseCamera();
+            camera = Camera.open(cameraId);
+            qOpened = (camera != null);
+        } catch (Exception e) {
+            Log.e(getString(R.string.app_name), "failed to open Camera");
+            e.printStackTrace();
+        }
+
+        return qOpened;
     }
 
     private int getCurrentCameraId() {
@@ -565,8 +576,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
         try {
             camera.stopPreview();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
