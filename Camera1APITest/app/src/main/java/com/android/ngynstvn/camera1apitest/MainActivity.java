@@ -1,6 +1,10 @@
 package com.android.ngynstvn.camera1apitest;
 
 import android.annotation.TargetApi;
+import android.app.AlertDialog;
+import android.app.Dialog;
+import android.app.DialogFragment;
+import android.content.DialogInterface;
 import android.content.pm.PackageManager;
 import android.hardware.Camera;
 import android.os.Build;
@@ -9,6 +13,8 @@ import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.util.SparseIntArray;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
@@ -22,32 +28,44 @@ import android.view.animation.AnimationSet;
 import android.view.animation.RotateAnimation;
 import android.view.animation.TranslateAnimation;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
-import android.widget.Toast;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 
-public class MainActivity extends AppCompatActivity implements SurfaceHolder.Callback {
-
-    private static final String TAG = "(" + MainActivity.class.getSimpleName() + "): ";
-    private static final int MEDIA_TYPE_IMAGE = 1;
+public class MainActivity extends AppCompatActivity {
 
     /**
      * STEPS TO SETTING UP CAMERA 1
      *
-     * 1. Detect and access camera
-     * 2. Create Preview Class (SurfaceView and something that implements SurfaceHolder interface)
-     * 3. Build a Preview Layout
-     * 4. Set up listeners for capture
-     * 5. Capture and save files
-     * 6. Release the camera (Camera.release())
+     * 0. Inflate any views. Ensure that the Surface is added to a FrameLayout, not a SurfaceView.
+     * This will cause a headache by having the preview freeze after onResume() is called after onPause().
+     * 1. Detect if there is any camera hardware
+     * 2. If yes, get the Camera Instance
+     * 3. Instantiate the SurfaceView. Set Context as this.
+     * 4. Add the SurfaceView to the FrameLayout that will display the Surface
+     * 5. Get the SurfaceHolder using the SurfaceView
+     * 6. Add the SurfaceHolder.Callback listener to the SurfaceHolder.
+     * 7. Inside surfaceCreated(), let the camera set the preview display
+     * 8. Inside surfaceChanged(), get camera parameters, get appropriate preview sizes, fix orientation,
+     * set the preview size based on the optimized method.
+     * 9. Set the parameters using camera inside surfaceChanged().
+     * 10. Invoke displayPreview() using camera inside surfaceChanged().
+     *
+     * Note 1: surfaceChanged() is called first when the Surface is created for the very first time.
+     * This is called after when the SurfaceHolder has a listener added to it. Basically this listener
+     * keeps track of the state of the Surface and what type of changes need to be done when
+     * certain scenario occurs in this application.
      *
      */
+
+    private static final String TAG = "(" + MainActivity.class.getSimpleName() + "): ";
 
     /**
      *
@@ -55,7 +73,26 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
      *
      */
 
+    private Camera camera;
     private static int currentCameraId = -1;
+    private SurfaceView surfaceView;
+    private SurfaceHolder surfaceHolder; // connection to another object (Surface)
+    private Camera.Size previewSize = null;
+
+    // Static block initializer. This is called first after when the class is instantiated.
+    // Called before a constructor. This is a great place to instantiate any list of static variables.
+
+    private static final SparseIntArray ORIENTATION_FIX = new SparseIntArray();
+
+    static {
+        ORIENTATION_FIX.append(Surface.ROTATION_0, 90);
+        ORIENTATION_FIX.append(Surface.ROTATION_90, 0);
+        ORIENTATION_FIX.append(Surface.ROTATION_180, 270);
+        ORIENTATION_FIX.append(Surface.ROTATION_270, 90);
+    }
+
+    private static final int MEDIA_TYPE_IMAGE = 0;
+    private static final int ERROR_NO_CAMERA_HARDWARE = 1;
 
     /**
      *
@@ -63,7 +100,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
      *
      */
 
-    private SurfaceView surfaceView;
+    private FrameLayout previewLayout;
 
     private RelativeLayout topIconsHolder;
     private Button exitCameraBtn;
@@ -91,7 +128,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
         // Basically get this whole cycle working...it all starts with TextureView
 
-        surfaceView = (SurfaceView) findViewById(R.id.sv_camera_preview);
+        previewLayout = (FrameLayout) findViewById(R.id.fl_camera_preview);
         topIconsHolder = (RelativeLayout) findViewById(R.id.rl_top_icons);
         exitCameraBtn = (Button) findViewById(R.id.btn_exit_camera);
         bottomIconsHolder = (RelativeLayout) findViewById(R.id.rl_bottom_icons);
@@ -205,12 +242,90 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     protected void onResume() {
         Log.e(TAG, "onResume() called");
         super.onResume();
+
+        if(isCameraHardwareAvailable()) {
+            currentCameraId = getCurrentCameraId();
+            Log.v(TAG, "Current Camera ID: " + currentCameraId);
+
+            if(currentCameraId != -1) {
+                surfaceView = new SurfaceView(this);
+                previewLayout.addView(surfaceView);
+                openCamera(currentCameraId);
+                surfaceHolder = surfaceView.getHolder();
+                surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+                surfaceHolder.addCallback(new SurfaceHolder.Callback() {
+                    @Override
+                    public void surfaceCreated(SurfaceHolder holder) {
+                        Log.e(TAG, "surfaceCreated() called");
+                        // When the Surface is created, set the preview display. Don't start it here.
+
+                        try {
+                            if(camera != null) {
+                                camera.setPreviewDisplay(holder);
+                            }
+                        }
+                        catch (IOException e) {
+                            Log.e(TAG, "There was an error setting up the preview display");
+                            e.printStackTrace();
+                        }
+                    }
+
+                    @Override
+                    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+                        Log.e(TAG, "surfaceChanged() called");
+                        // When the Surface is displayed for the first time, it calls this. Start preview here.
+                        // Tell Surface client how big the drawing area will be (preview size)
+
+                        if(camera == null) {
+                            Log.e(TAG, "Camera is null inside surfaceChanged()");
+                            return;
+                        }
+
+                        Camera.Parameters cameraParameters = camera.getParameters();
+                        previewSize = getPreferredPreviewSize(width, height, cameraParameters);
+                        Log.v(TAG, "Current Preview Size: (" + previewSize.width + ", " + previewSize.height + ")");
+
+                        cameraParameters.setPreviewSize(previewSize.width, previewSize.height);
+                        camera.setParameters(cameraParameters);
+
+                        try {
+                            int rotation = getWindowManager().getDefaultDisplay().getRotation();
+                            camera.setDisplayOrientation(ORIENTATION_FIX.get(rotation));
+                            camera.startPreview();
+                        }
+                        catch (Exception e) {
+                            Log.e(TAG, "Camera was unable to start preview");
+                            e.printStackTrace();
+                            releaseCamera();
+                        }
+                    }
+
+                    @Override
+                    public void surfaceDestroyed(SurfaceHolder holder) {
+                        Log.e(TAG, "surfaceDestroyed() called");
+                        // Handled by onPause()
+                        // onPause() gets called before this.
+                    }
+                });
+            }
+        }
+        else {
+            Log.e(TAG, "No camera hardware detected in the device.");
+
+            ErrorDialog.newInstance(ERROR_NO_CAMERA_HARDWARE).show(getFragmentManager(), "no_cam_hardware");
+
+            if(!isTaskRoot()) {
+                finish();
+            }
+        }
     }
 
     @Override
     protected void onPause() {
         Log.e(TAG, "onPause() called");
         super.onPause();
+        camera.stopPreview();
+        releaseCamera();
     }
 
     @Override
@@ -233,68 +348,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     /**
      *
-     * Animation Methods
-     *
-     */
-
-    private void moveFadeAnimation(ViewGroup viewGroup, float fromX, float toX, float fromY, float toY,
-                                   float fromAlpha, float toAlpha, long time1, long time2) {
-        AnimationSet animationSet = new AnimationSet(true);
-
-        TranslateAnimation translateAnimation = new TranslateAnimation(fromX, toX, fromY, toY);
-        translateAnimation.setDuration(time1);
-
-        AlphaAnimation fadeAnimation = new AlphaAnimation(fromAlpha, toAlpha);
-        fadeAnimation.setDuration(time2);
-
-        animationSet.addAnimation(translateAnimation);
-        animationSet.addAnimation(fadeAnimation);
-
-        viewGroup.startAnimation(animationSet);
-    }
-
-    private void moveVerticalAnimation(ViewGroup viewGroup, int fromY, int toY, long time) {
-
-        TranslateAnimation translateAnimation = new TranslateAnimation(0, 0, fromY, toY);
-        translateAnimation.setDuration(time);
-        viewGroup.startAnimation(translateAnimation);
-
-    }
-
-    private void fadeRotateViewAnimation(View view, float fromAlpha, float toAlpha, long time1) {
-        AnimationSet animationSet = new AnimationSet(true);
-        AlphaAnimation fadeAnimation = new AlphaAnimation(fromAlpha, toAlpha);
-        RotateAnimation rotateAnimation = new RotateAnimation(0, 360, Animation.RELATIVE_TO_SELF,
-                0.50F, Animation.RELATIVE_TO_SELF, 0.50F);
-
-        fadeAnimation.setDuration(time1);
-        rotateAnimation.setDuration(time1);
-
-        animationSet.addAnimation(fadeAnimation);
-        animationSet.addAnimation(rotateAnimation);
-
-        view.startAnimation(animationSet);
-    }
-
-    private void quickFadeInOutAnimation(View view, float fromAlpha, float toAlpha, long time1, long time2) {
-        AnimationSet animationSet = new AnimationSet(true);
-        AlphaAnimation fadeInAnimation = new AlphaAnimation(fromAlpha, toAlpha);
-        AlphaAnimation fadeOutAnimation = new AlphaAnimation(toAlpha, fromAlpha);
-
-        fadeInAnimation.setInterpolator(new AccelerateDecelerateInterpolator());
-        fadeOutAnimation.setInterpolator(new AccelerateDecelerateInterpolator());
-
-        fadeInAnimation.setDuration(time1);
-        fadeOutAnimation.setDuration(time2);
-
-        animationSet.addAnimation(fadeInAnimation);
-        animationSet.addAnimation(fadeOutAnimation);
-
-        view.startAnimation(animationSet);
-    }
-
-    /**
-     *
      * Camera Methods
      *
      */
@@ -307,6 +360,33 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         return getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA);
     }
 
+    private void openCamera(int cameraId) {
+        try {
+            if(isCameraHardwareAvailable()) {
+                camera = Camera.open(cameraId);
+
+                if(camera != null) {
+                    Log.v(TAG, "Camera instantiated");
+                }
+                else {
+                    Log.v(TAG, "Camera instance is null");
+                }
+            }
+        }
+        catch (Exception e) {
+            Log.e(TAG, "Camera instantiation error.");
+            e.printStackTrace();
+        }
+    }
+
+    private void releaseCamera() {
+        if(camera != null) {
+            camera.release();
+            camera = null;
+            previewLayout.removeView(surfaceView);
+        }
+    }
+
     private int getCurrentCameraId() {
 
         int cameraId = -1;
@@ -314,7 +394,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
         if(numOfCameras == 0) {
             Log.e(TAG, "There are no cameras on this phone.");
-            Toast.makeText(this, "There are no cameras on this phone", Toast.LENGTH_SHORT).show();
+            ErrorDialog.newInstance(ERROR_NO_CAMERA_HARDWARE);
             return cameraId;
         }
 
@@ -447,22 +527,105 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     /**
      *
-     * SurfaceHolder.Callback Implemented Methods
+     * Animation Methods
      *
      */
 
-    @Override
-    public void surfaceCreated(SurfaceHolder holder) {
-        Log.v(TAG, "surfaceCreated() called");
+    private void moveFadeAnimation(ViewGroup viewGroup, float fromX, float toX, float fromY, float toY,
+                                   float fromAlpha, float toAlpha, long time1, long time2) {
+        AnimationSet animationSet = new AnimationSet(true);
+
+        TranslateAnimation translateAnimation = new TranslateAnimation(fromX, toX, fromY, toY);
+        translateAnimation.setDuration(time1);
+
+        AlphaAnimation fadeAnimation = new AlphaAnimation(fromAlpha, toAlpha);
+        fadeAnimation.setDuration(time2);
+
+        animationSet.addAnimation(translateAnimation);
+        animationSet.addAnimation(fadeAnimation);
+
+        viewGroup.startAnimation(animationSet);
     }
 
-    @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        Log.v(TAG, "surfaceChanged() called");
+    private void moveVerticalAnimation(ViewGroup viewGroup, int fromY, int toY, long time) {
+
+        TranslateAnimation translateAnimation = new TranslateAnimation(0, 0, fromY, toY);
+        translateAnimation.setDuration(time);
+        viewGroup.startAnimation(translateAnimation);
+
     }
 
-    @Override
-    public void surfaceDestroyed(SurfaceHolder holder) {
-        Log.v(TAG, "surfaceDestroyed() called");
+    private void fadeRotateViewAnimation(View view, float fromAlpha, float toAlpha, long time1) {
+        AnimationSet animationSet = new AnimationSet(true);
+        AlphaAnimation fadeAnimation = new AlphaAnimation(fromAlpha, toAlpha);
+        RotateAnimation rotateAnimation = new RotateAnimation(0, 360, Animation.RELATIVE_TO_SELF,
+                0.50F, Animation.RELATIVE_TO_SELF, 0.50F);
+
+        fadeAnimation.setDuration(time1);
+        rotateAnimation.setDuration(time1);
+
+        animationSet.addAnimation(fadeAnimation);
+        animationSet.addAnimation(rotateAnimation);
+
+        view.startAnimation(animationSet);
+    }
+
+    private void quickFadeInOutAnimation(View view, float fromAlpha, float toAlpha, long time1, long time2) {
+        AnimationSet animationSet = new AnimationSet(true);
+        AlphaAnimation fadeInAnimation = new AlphaAnimation(fromAlpha, toAlpha);
+        AlphaAnimation fadeOutAnimation = new AlphaAnimation(toAlpha, fromAlpha);
+
+        fadeInAnimation.setInterpolator(new AccelerateDecelerateInterpolator());
+        fadeOutAnimation.setInterpolator(new AccelerateDecelerateInterpolator());
+
+        fadeInAnimation.setDuration(time1);
+        fadeOutAnimation.setDuration(time2);
+
+        animationSet.addAnimation(fadeInAnimation);
+        animationSet.addAnimation(fadeOutAnimation);
+
+        view.startAnimation(animationSet);
+    }
+
+    /**
+     *
+     * ErrorDialog
+     *
+     */
+
+    public static class ErrorDialog extends DialogFragment {
+
+        int errorCode = 0;
+        String errorMessage;
+
+        public static ErrorDialog newInstance(int errorCode) {
+            ErrorDialog errorDialog = new ErrorDialog();
+            Bundle bundle = new Bundle();
+            bundle.putInt("errorCode", errorCode);
+            errorDialog.setArguments(bundle);
+            return errorDialog;
+        }
+
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+
+            errorCode = getArguments().getInt("errorCode");
+
+            switch (errorCode) {
+                case ERROR_NO_CAMERA_HARDWARE:
+                    errorMessage = "No camera hardware detected in the camera.";
+                    break;
+            }
+
+            return new AlertDialog.Builder(getActivity())
+                    .setMessage(errorMessage)
+                    .setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            dismiss();
+                        }
+                    })
+                    .create();
+        }
     }
 }

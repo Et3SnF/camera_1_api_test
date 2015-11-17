@@ -5,18 +5,9 @@
     android:layout_height="match_parent">
 
     <FrameLayout
-        android:id="@+id/fl_sv_camera_preview"
+        android:id="@+id/fl_camera_preview"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
-
-        <!-- SurfaceView Goes here -->
-
-        <SurfaceView
-            android:id="@+id/sv_camera_preview"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"/>
-
-    </FrameLayout>
+        android:layout_height="match_parent"/>
 
     <!-- Top Icons - Visible whenever in capture mode -->
 
