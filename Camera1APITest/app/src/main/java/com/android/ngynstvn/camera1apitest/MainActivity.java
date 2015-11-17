@@ -10,6 +10,7 @@ import android.hardware.Camera;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -65,7 +66,8 @@ public class MainActivity extends AppCompatActivity {
      *
      */
 
-    private static final String TAG = "(" + MainActivity.class.getSimpleName() + "): ";
+    private static final String TAG = "(" + MainActivity.class.getSimpleName() + ") ";
+    private static final String CLASS_TAG = MainActivity.class.getSimpleName();
 
     /**
      *
@@ -120,7 +122,8 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        Log.e(TAG, "onCreate() called");
+        BPUtils.logMethod(CLASS_TAG);
+
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         super.onCreate(savedInstanceState);
@@ -234,95 +237,105 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onStart() {
-        Log.e(TAG, "onStart() called");
+        BPUtils.logMethod(CLASS_TAG);
         super.onStart();
     }
 
     @Override
     protected void onResume() {
-        Log.e(TAG, "onResume() called");
+        BPUtils.logMethod(CLASS_TAG);
         super.onResume();
 
-        if(isCameraHardwareAvailable()) {
-            currentCameraId = getCurrentCameraId();
-            Log.v(TAG, "Current Camera ID: " + currentCameraId);
+        Handler handler = new Handler();
 
-            if(currentCameraId != -1) {
-                surfaceView = new SurfaceView(this);
-                previewLayout.addView(surfaceView);
-                openCamera(currentCameraId);
-                surfaceHolder = surfaceView.getHolder();
-                surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-                surfaceHolder.addCallback(new SurfaceHolder.Callback() {
-                    @Override
-                    public void surfaceCreated(SurfaceHolder holder) {
-                        Log.e(TAG, "surfaceCreated() called");
-                        // When the Surface is created, set the preview display. Don't start it here.
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
 
-                        try {
-                            if(camera != null) {
-                                camera.setPreviewDisplay(holder);
+                BPUtils.logMethod(CLASS_TAG);
+
+                if(isCameraHardwareAvailable()) {
+                    currentCameraId = getCurrentCameraId();
+                    Log.v(TAG, "Current Camera ID: " + currentCameraId);
+
+                    if(currentCameraId != -1) {
+                        surfaceView = new SurfaceView(MainActivity.this);
+                        previewLayout.addView(surfaceView);
+                        openCamera(currentCameraId);
+                        surfaceHolder = surfaceView.getHolder();
+                        surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+                        surfaceHolder.addCallback(new SurfaceHolder.Callback() {
+                            @Override
+                            public void surfaceCreated(SurfaceHolder holder) {
+                                BPUtils.logMethod(CLASS_TAG);
+                                // When the Surface is created, set the preview display. Don't start it here.
+
+                                try {
+                                    if(camera != null) {
+                                        camera.setPreviewDisplay(holder);
+                                    }
+                                }
+                                catch (IOException e) {
+                                    Log.e(TAG, "There was an error setting up the preview display");
+                                    e.printStackTrace();
+                                }
                             }
-                        }
-                        catch (IOException e) {
-                            Log.e(TAG, "There was an error setting up the preview display");
-                            e.printStackTrace();
-                        }
+
+                            @Override
+                            public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+                                BPUtils.logMethod(CLASS_TAG);
+                                // When the Surface is displayed for the first time, it calls this. Start preview here.
+                                // Tell Surface client how big the drawing area will be (preview size)
+
+                                if(camera == null) {
+                                    Log.e(TAG, "Camera is null inside surfaceChanged()");
+                                    return;
+                                }
+
+                                Camera.Parameters cameraParameters = camera.getParameters();
+                                previewSize = getPreferredPreviewSize(width, height, cameraParameters);
+                                Log.v(TAG, "Current Preview Size: (" + previewSize.width + ", " + previewSize.height + ")");
+
+                                cameraParameters.setPreviewSize(previewSize.width, previewSize.height);
+                                camera.setParameters(cameraParameters);
+
+                                try {
+                                    int rotation = getWindowManager().getDefaultDisplay().getRotation();
+                                    camera.setDisplayOrientation(ORIENTATION_FIX.get(rotation));
+                                    camera.startPreview();
+                                }
+                                catch (Exception e) {
+                                    Log.e(TAG, "Camera was unable to start preview");
+                                    e.printStackTrace();
+                                    releaseCamera();
+                                }
+                            }
+
+                            @Override
+                            public void surfaceDestroyed(SurfaceHolder holder) {
+                                BPUtils.logMethod(CLASS_TAG);
+                                // Handled by onPause()
+                                // onPause() gets called before this.
+                            }
+                        });
                     }
+                }
+                else {
+                    Log.e(TAG, "No camera hardware detected in the device.");
 
-                    @Override
-                    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-                        Log.e(TAG, "surfaceChanged() called");
-                        // When the Surface is displayed for the first time, it calls this. Start preview here.
-                        // Tell Surface client how big the drawing area will be (preview size)
+                    ErrorDialog.newInstance(ERROR_NO_CAMERA_HARDWARE).show(getFragmentManager(), "no_cam_hardware");
 
-                        if(camera == null) {
-                            Log.e(TAG, "Camera is null inside surfaceChanged()");
-                            return;
-                        }
-
-                        Camera.Parameters cameraParameters = camera.getParameters();
-                        previewSize = getPreferredPreviewSize(width, height, cameraParameters);
-                        Log.v(TAG, "Current Preview Size: (" + previewSize.width + ", " + previewSize.height + ")");
-
-                        cameraParameters.setPreviewSize(previewSize.width, previewSize.height);
-                        camera.setParameters(cameraParameters);
-
-                        try {
-                            int rotation = getWindowManager().getDefaultDisplay().getRotation();
-                            camera.setDisplayOrientation(ORIENTATION_FIX.get(rotation));
-                            camera.startPreview();
-                        }
-                        catch (Exception e) {
-                            Log.e(TAG, "Camera was unable to start preview");
-                            e.printStackTrace();
-                            releaseCamera();
-                        }
+                    if(!isTaskRoot()) {
+                        finish();
                     }
-
-                    @Override
-                    public void surfaceDestroyed(SurfaceHolder holder) {
-                        Log.e(TAG, "surfaceDestroyed() called");
-                        // Handled by onPause()
-                        // onPause() gets called before this.
-                    }
-                });
+                }
             }
-        }
-        else {
-            Log.e(TAG, "No camera hardware detected in the device.");
-
-            ErrorDialog.newInstance(ERROR_NO_CAMERA_HARDWARE).show(getFragmentManager(), "no_cam_hardware");
-
-            if(!isTaskRoot()) {
-                finish();
-            }
-        }
+        });
     }
 
     @Override
     protected void onPause() {
-        Log.e(TAG, "onPause() called");
+        BPUtils.logMethod(CLASS_TAG);
         super.onPause();
         camera.stopPreview();
         releaseCamera();
@@ -330,19 +343,19 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
-        Log.e(TAG, "onSaveInstanceState() called");
+        BPUtils.logMethod(CLASS_TAG);
         super.onSaveInstanceState(outState);
     }
 
     @Override
     protected void onStop() {
-        Log.e(TAG, "onStop() called");
+        BPUtils.logMethod(CLASS_TAG);
         super.onStop();
     }
 
     @Override
     protected void onDestroy() {
-        Log.e(TAG, "onDestroy() called");
+        BPUtils.logMethod(CLASS_TAG);
         super.onDestroy();
     }
 
@@ -353,14 +366,20 @@ public class MainActivity extends AppCompatActivity {
      */
 
     private void previewCaptureFlashAnimation(View view) {
+        BPUtils.logMethod(CLASS_TAG);
+
         quickFadeInOutAnimation(view, 0.00F, 0.05F, 150L, 150L);
     }
 
     private boolean isCameraHardwareAvailable() {
+        BPUtils.logMethod(CLASS_TAG);
+
         return getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA);
     }
 
     private void openCamera(int cameraId) {
+        BPUtils.logMethod(CLASS_TAG);
+
         try {
             if(isCameraHardwareAvailable()) {
                 camera = Camera.open(cameraId);
@@ -380,7 +399,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void releaseCamera() {
-        if(camera != null) {
+        BPUtils.logMethod(CLASS_TAG);
+
+        if (camera != null) {
             camera.release();
             camera = null;
             previewLayout.removeView(surfaceView);
@@ -388,6 +409,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private int getCurrentCameraId() {
+
+        BPUtils.logMethod(CLASS_TAG);
 
         int cameraId = -1;
         int numOfCameras = Camera.getNumberOfCameras();
@@ -418,7 +441,9 @@ public class MainActivity extends AppCompatActivity {
         return cameraId;
     }
 
-    private static File getOutputMediaFile(int type){
+    private static File getOutputMediaFile(int type) {
+        BPUtils.logMethod(CLASS_TAG);
+
         // To be safe, you should check that the SDCard is mounted
         // using Environment.getExternalStorageState() before doing this.
 
@@ -449,6 +474,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void switchCameraFacing() {
+        BPUtils.logMethod(CLASS_TAG);
 
         // If the camera is facing back, change currentCameraId to be front
         // else get camera id for back facing camera
@@ -466,6 +492,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private Camera.Size getPreferredPreviewSize(int width, int height, Camera.Parameters parameters) {
+
+        BPUtils.logMethod(CLASS_TAG);
 
         ArrayList<Camera.Size> supportedPreviewSizes = (ArrayList<Camera.Size>) parameters.getSupportedPreviewSizes();
 
@@ -500,6 +528,8 @@ public class MainActivity extends AppCompatActivity {
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
     private void switchCameraIcons(boolean isFrontFacing) {
+
+        BPUtils.logMethod(CLASS_TAG);
 
         Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
         if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
@@ -628,4 +658,5 @@ public class MainActivity extends AppCompatActivity {
                     .create();
         }
     }
+
 }
