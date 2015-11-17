@@ -26,7 +26,6 @@ import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import java.io.File;
-import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -56,26 +55,7 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
      *
      */
 
-    private boolean isCameraOpened = false;
-    private Camera.Size previewSize;
-    private SurfaceHolder surfaceHolder;
-    private Camera camera = null;
-    private int cameraId = -1;
-    private int cameraOrientation;
-    private File tempImageFile;
-    private Camera.PictureCallback pictureCallback = new Camera.PictureCallback() {
-        @Override
-        public void onPictureTaken(byte[] data, Camera camera) {
-            tempImageFile = getOutputMediaFile(MEDIA_TYPE_IMAGE);
-
-            if(tempImageFile == null) {
-                Log.e(TAG, "Error creating media file. Try again.");
-                return;
-            }
-
-            Log.v(TAG, "The image was captured but not saved.");
-        }
-    };
+    private static int currentCameraId = -1;
 
     /**
      *
@@ -120,31 +100,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         flashModeBtn = (Button) findViewById(R.id.btn_flash_mode);
         cancelCaptureBtn = (RelativeLayout) findViewById(R.id.rl_cancel_picture);
         approveCaptureBtn = (RelativeLayout) findViewById(R.id.rl_approve_pic);
-
-        // Camera Material here
-
-        if(isCameraHardwareAvailable()) {
-            Log.v(TAG, "Camera hardware is available.");
-            cameraId = getCurrentCameraId();
-            Log.v(TAG, "Current cameraId: " + cameraId);
-
-            camera = getCameraInstance(cameraId);
-
-            surfaceHolder = surfaceView.getHolder();
-            surfaceHolder.addCallback(this);
-            surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-
-            if(camera != null) {
-                Log.e(TAG, "Camera Instance is not null");
-            }
-            else {
-                Log.e(TAG, "Camera is null. Ending activity.");
-                if(!isTaskRoot()) {
-                    finish();
-                }
-                return;
-            }
-        }
 
         exitCameraBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -250,13 +205,11 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     protected void onResume() {
         Log.e(TAG, "onResume() called");
         super.onResume();
-        isCameraOpened = isCameraOpenedSafely(getCurrentCameraId());
     }
 
     @Override
     protected void onPause() {
         Log.e(TAG, "onPause() called");
-        releaseCamera();
         super.onPause();
     }
 
@@ -354,36 +307,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         return getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA);
     }
 
-    private Camera getCameraInstance(int cameraId) {
-
-        if(isCameraHardwareAvailable()) {
-            try {
-                return Camera.open(cameraId);
-            }
-            catch (Exception e) {
-                e.printStackTrace();
-                return null;
-            }
-        }
-
-        return null;
-    }
-
-    private boolean isCameraOpenedSafely(int cameraId) {
-        boolean qOpened = false;
-
-        try {
-            releaseCamera();
-            camera = Camera.open(cameraId);
-            qOpened = (camera != null);
-        } catch (Exception e) {
-            Log.e(getString(R.string.app_name), "failed to open Camera");
-            e.printStackTrace();
-        }
-
-        return qOpened;
-    }
-
     private int getCurrentCameraId() {
 
         int cameraId = -1;
@@ -413,19 +336,6 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
         }
 
         return cameraId;
-    }
-
-    private void releaseCamera() {
-        if(camera != null) {
-            camera.release();
-            camera = null;
-        }
-    }
-
-    private void takePhoto() {
-        if(camera != null) {
-            camera.takePicture(null, null, pictureCallback);
-        }
     }
 
     private static File getOutputMediaFile(int type){
@@ -459,29 +369,20 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
     }
 
     private void switchCameraFacing() {
-        // release the camera and stop preview
-        releaseCamera();
 
-        // If the camera is facing back, change cameraId to be front
+        // If the camera is facing back, change currentCameraId to be front
         // else get camera id for back facing camera
 
-        if(cameraId == Camera.CameraInfo.CAMERA_FACING_BACK) {
-            cameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
+        if(currentCameraId == Camera.CameraInfo.CAMERA_FACING_BACK) {
+            currentCameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
             fadeRotateViewAnimation(flashModeBtn, 1.00F, 0.00F, 700L);
             flashModeBtn.setVisibility(View.GONE);
         }
         else {
-            cameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
+            currentCameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
             fadeRotateViewAnimation(flashModeBtn, 0.00F, 1.00F, 700L);
             flashModeBtn.setVisibility(View.VISIBLE);
         }
-
-        restartCamera(cameraId);
-    }
-
-    private void restartCamera(int cameraId) {
-        camera = getCameraInstance(cameraId);
-        surfaceView = (SurfaceView) findViewById(R.id.sv_camera_preview);
     }
 
     private Camera.Size getPreferredPreviewSize(int width, int height, Camera.Parameters parameters) {
@@ -546,67 +447,22 @@ public class MainActivity extends AppCompatActivity implements SurfaceHolder.Cal
 
     /**
      *
-     * SurfaceHolder.Callback Listener
+     * SurfaceHolder.Callback Implemented Methods
      *
      */
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        Log.e(TAG, "surfaceCreated() called");
-        // Display the preview
-
-        try {
-            camera.setPreviewDisplay(surfaceHolder);
-        } catch (IOException e) {
-            Log.e(TAG, "There was an issue displaying the preview: " + e.getMessage());
-            e.printStackTrace();
-        }
+        Log.v(TAG, "surfaceCreated() called");
     }
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        Log.e(TAG, "surfaceChanged() called");
-
-        if(surfaceHolder.getSurface() == null) {
-            Log.e(TAG, "Preview Surface does not exist");
-            return;
-        }
-
-        // Stop this preview before making changes such as rotation
-
-        try {
-            camera.stopPreview();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        // Whatever preview size is here
-
-        Camera.Parameters parameters = camera.getParameters();
-        previewSize = getPreferredPreviewSize(width, height, parameters);
-        Log.v(TAG, "Current Preview Size: (" + previewSize.width + ", " + previewSize.height + ")");
-
-        if(previewSize != null) {
-            parameters.setPreviewSize(previewSize.width, previewSize.height);
-            camera.setParameters(parameters);
-        }
-
-        camera.setDisplayOrientation(90);
-
-        // Then display changes
-        try {
-            camera.setPreviewDisplay(surfaceHolder);
-            camera.startPreview();
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-        }
+        Log.v(TAG, "surfaceChanged() called");
     }
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-        Log.e(TAG, "surfaceDestroyed() called");
-
-        // Being taken care of by releaseCamera();
+        Log.v(TAG, "surfaceDestroyed() called");
     }
 }
