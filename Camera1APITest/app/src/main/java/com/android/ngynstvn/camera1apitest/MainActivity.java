@@ -617,7 +617,7 @@ public class MainActivity extends AppCompatActivity {
         public void run() {
             BPUtils.logMethod(CLASS_TAG, "CameraThread");
 
-            // Prepare the looper
+            // Prepare the looper. Need this in order to instantiate the handler in this thread.
             Looper.prepare();
             cameraHandler = new Handler();
 
