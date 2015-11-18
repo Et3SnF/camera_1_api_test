@@ -636,6 +636,8 @@ public class CameraActivity extends AppCompatActivity {
             toggleFlashMode(flashModeBtn, 0.00F, 1.00F, 400L, R.drawable.ic_flash_off_white_24dp);
         }
 
+        getFlashMode();
+
     }
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
