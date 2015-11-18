@@ -1,10 +1,12 @@
 package com.android.ngynstvn.camera1apitest;
 
+import android.animation.ObjectAnimator;
 import android.annotation.TargetApi;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.DialogFragment;
 import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.hardware.Camera;
 import android.os.Build;
@@ -71,6 +73,8 @@ public class CameraActivity extends AppCompatActivity {
     private static final String TAG = "(" + CameraActivity.class.getSimpleName() + ") ";
     private static final String CLASS_TAG = CameraActivity.class.getSimpleName();
 
+    private SharedPreferences sharedPreferences;
+
     /**
      *
      * Camera Variables
@@ -79,7 +83,7 @@ public class CameraActivity extends AppCompatActivity {
 
     private Camera camera;
     private int currentCameraId = -1;
-    private boolean isFrontCamActive = true;
+    private static boolean isFrontCamActive = true;
     private SurfaceView surfaceView;
     private SurfaceHolder surfaceHolder; // connection to another object (Surface)
     private Camera.Size previewSize = null;
@@ -132,7 +136,7 @@ public class CameraActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        BPUtils.logMethod(CLASS_TAG);
+        Utils.logMethod(CLASS_TAG);
 
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
@@ -241,7 +245,7 @@ public class CameraActivity extends AppCompatActivity {
         approveCaptureBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                BPUtils.logMethod(CLASS_TAG, "approveCaptureBtn");
+                Utils.logMethod(CLASS_TAG, "approveCaptureBtn");
                 getTempImgFileUri(tempImgFile);
             }
         });
@@ -250,20 +254,20 @@ public class CameraActivity extends AppCompatActivity {
 
     @Override
     protected void onStart() {
-        BPUtils.logMethod(CLASS_TAG);
+        Utils.logMethod(CLASS_TAG);
         super.onStart();
     }
 
     @Override
     protected void onResume() {
-        BPUtils.logMethod(CLASS_TAG);
+        Utils.logMethod(CLASS_TAG);
         super.onResume();
         startCameraThread();
     }
 
     @Override
     protected void onPause() {
-        BPUtils.logMethod(CLASS_TAG);
+        Utils.logMethod(CLASS_TAG);
         super.onPause();
 
         cameraHandler.post(new Runnable() {
@@ -277,19 +281,19 @@ public class CameraActivity extends AppCompatActivity {
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
-        BPUtils.logMethod(CLASS_TAG);
+        Utils.logMethod(CLASS_TAG);
         super.onSaveInstanceState(outState);
     }
 
     @Override
     protected void onStop() {
-        BPUtils.logMethod(CLASS_TAG);
+        Utils.logMethod(CLASS_TAG);
         super.onStop();
     }
 
     @Override
     protected void onDestroy() {
-        BPUtils.logMethod(CLASS_TAG);
+        Utils.logMethod(CLASS_TAG);
         super.onDestroy();
     }
 
@@ -300,13 +304,13 @@ public class CameraActivity extends AppCompatActivity {
      */
 
     private boolean isCameraHardwareAvailable() {
-        BPUtils.logMethod(CLASS_TAG);
+        Utils.logMethod(CLASS_TAG);
 
         return getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA);
     }
 
     private void openCamera(int cameraId) {
-        BPUtils.logMethod(CLASS_TAG);
+        Utils.logMethod(CLASS_TAG);
 
         try {
             if(isCameraHardwareAvailable()) {
@@ -327,7 +331,7 @@ public class CameraActivity extends AppCompatActivity {
     }
 
     private void releaseCamera() {
-        BPUtils.logMethod(CLASS_TAG);
+        Utils.logMethod(CLASS_TAG);
 
         if (camera != null) {
             camera.release();
@@ -345,52 +349,35 @@ public class CameraActivity extends AppCompatActivity {
 
     private int getCurrentCameraId() {
 
-        BPUtils.logMethod(CLASS_TAG);
+        Utils.logMethod(CLASS_TAG);
 
-        int cameraId = -1;
         int numOfCameras = Camera.getNumberOfCameras();
 
         if(numOfCameras == 0) {
             Log.e(TAG, "There are no cameras on this phone.");
             ErrorDialog.newInstance(ERROR_NO_CAMERA_HARDWARE);
-            return cameraId;
+            return -1;
         }
 
-        // Get camera Ids
+        // Get last known state of camera. If nothing is found, set to back camera as default.
 
-        for(int i = 0; i < numOfCameras; i++) {
-            Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
-            Camera.getCameraInfo(i, cameraInfo);
+        SharedPreferences sharedPreferences = CameraActivity.this
+                .getSharedPreferences(Utils.FILE_NAME, MODE_PRIVATE);
 
-            if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-                Log.v(TAG, "Front facing camera detected");
-                cameraId = i;
+        isFrontCamActive = sharedPreferences.getBoolean(Utils.CAM_STATE, false);
 
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        flashModeBtn.setVisibility(View.GONE);
-                    }
-                });
-            }
-            else if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
-                Log.v(TAG, "Back facing camera detected");
-
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        flashModeBtn.setVisibility(View.VISIBLE);
-                    }
-                });
-            }
+        if(isFrontCamActive) {
+            return Camera.CameraInfo.CAMERA_FACING_FRONT;
+        }
+        else {
+            return Camera.CameraInfo.CAMERA_FACING_BACK;
         }
 
-        return cameraId;
     }
 
     private Camera.Size getPreferredPreviewSize(int width, int height, Camera.Parameters parameters) {
 
-        BPUtils.logMethod(CLASS_TAG);
+        Utils.logMethod(CLASS_TAG);
 
         ArrayList<Camera.Size> supportedPreviewSizes = (ArrayList<Camera.Size>) parameters.getSupportedPreviewSizes();
 
@@ -424,6 +411,7 @@ public class CameraActivity extends AppCompatActivity {
     }
 
     private void startCameraThread() {
+        Utils.logMethod(CLASS_TAG);
         cameraThread = new CameraThread();
         cameraThread.start();
     }
@@ -438,13 +426,13 @@ public class CameraActivity extends AppCompatActivity {
         cameraHandler.post(new Runnable() {
             @Override
             public void run() {
-                BPUtils.logMethod(CLASS_TAG);
+                Utils.logMethod(CLASS_TAG);
 
                 if (camera != null) {
                     camera.takePicture(null, null, new Camera.PictureCallback() {
                         @Override
                         public void onPictureTaken(byte[] data, Camera camera) {
-                            BPUtils.logMethod(CLASS_TAG, "takePhoto");
+                            Utils.logMethod(CLASS_TAG, "takePhoto");
                             createTempImgFile(data);
                         }
                     });
@@ -452,7 +440,7 @@ public class CameraActivity extends AppCompatActivity {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            BPUtils.logMethod(CLASS_TAG, "takePhoto");
+                            Utils.logMethod(CLASS_TAG, "takePhoto");
                             ErrorDialog.newInstance(ERROR_NO_PHOTO_CAPTURE).show(getFragmentManager(), "no_capture_dialog");
                         }
                     });
@@ -466,7 +454,7 @@ public class CameraActivity extends AppCompatActivity {
         cameraHandler.post(new Runnable() {
             @Override
             public void run() {
-                BPUtils.logMethod(CLASS_TAG);
+                Utils.logMethod(CLASS_TAG);
                 deleteTempImgFile(tempImgFile);
             }
         });
@@ -483,36 +471,88 @@ public class CameraActivity extends AppCompatActivity {
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
     private void switchCamera() {
-        BPUtils.logMethod(CLASS_TAG);
+        Utils.logMethod(CLASS_TAG);
 
-        BPUtils.logMethod(CLASS_TAG, "switchCamera");
+        Utils.logMethod(CLASS_TAG, "switchCamera");
         // If the camera is facing back, change currentCameraId to be front
         // else get camera id for back facing camera
 
-        if(isFrontCamActive) {
-            currentCameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
-            fadeViewAnimation(flashModeBtn, 1.00F, 0.00F, 400L);
-            flashModeBtn.setVisibility(View.GONE);
+        if(currentCameraId == Camera.CameraInfo.CAMERA_FACING_FRONT) {
 
-            fadeRotateViewAnimation(cameraSwitchBtn, 1.00F, 0.00F, 400L);
-            cameraSwitchBtn.setVisibility(View.GONE);
-            cameraSwitchBtn.setBackground(getResources().getDrawable(R.drawable.ic_camera_rear_white_24dp));
-            fadeRotateViewAnimation(cameraSwitchBtn, 0.00F, 1.00F, 400L);
-            cameraSwitchBtn.setVisibility(View.VISIBLE);
-        }
-        else {
-            currentCameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
-            fadeViewAnimation(flashModeBtn, 0.00F, 1.00F, 400L);
+            cameraHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    Utils.putSPrefBooleanValue(CameraActivity.this, Utils.FILE_NAME,
+                            Utils.CAM_STATE, false);
+
+                    releaseCamera();
+
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            startCameraThread();
+                        }
+                    });
+                }
+            });
+
+            fadeViewAnimation(flashModeBtn, 0.00F, 1.00F, 700L);
             flashModeBtn.setVisibility(View.VISIBLE);
 
-            fadeRotateViewAnimation(cameraSwitchBtn, 1.00F, 0.00F, 400L);
+            // First at back camera icon --> turns to front camera icon
+            fadeRotateYAxisViewAnimation(cameraSwitchBtn, 1.00F, 0.00F, 400L);
             cameraSwitchBtn.setVisibility(View.GONE);
             cameraSwitchBtn.setBackground(getResources().getDrawable(R.drawable.ic_camera_front_white_24dp));
-            fadeRotateViewAnimation(cameraSwitchBtn, 0.00F, 1.00F, 400L);
+            fadeRotateYAxisViewAnimation(cameraSwitchBtn, 0.00F, 1.00F, 400L);
+            cameraSwitchBtn.setVisibility(View.VISIBLE);
+        }
+        else if (currentCameraId == Camera.CameraInfo.CAMERA_FACING_BACK) {
+
+            cameraHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    Utils.putSPrefBooleanValue(CameraActivity.this, Utils.FILE_NAME,
+                            Utils.CAM_STATE, true);
+
+                    releaseCamera();
+
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            startCameraThread();
+                        }
+                    });
+                }
+            });
+
+            fadeViewAnimation(flashModeBtn, 1.00F, 0.00F, 700L);
+            flashModeBtn.setVisibility(View.GONE);
+
+            // First at front camera icon --> turns to back camera icon
+            fadeRotateYAxisViewAnimation(cameraSwitchBtn, 1.00F, 0.00F, 400L);
+            cameraSwitchBtn.setVisibility(View.GONE);
+            cameraSwitchBtn.setBackground(getResources().getDrawable(R.drawable.ic_camera_rear_white_24dp));
+            fadeRotateYAxisViewAnimation(cameraSwitchBtn, 0.00F, 1.00F, 400L);
             cameraSwitchBtn.setVisibility(View.VISIBLE);
         }
 
         isFrontCamActive = !isFrontCamActive;
+    }
+
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
+    private void setCameraSwitches(int cameraId) {
+        // Set the proper flash and camera switch icons
+
+        if(cameraId == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+            cameraSwitchBtn.setBackground(getResources()
+                    .getDrawable(R.drawable.ic_camera_rear_white_24dp));
+            flashModeBtn.setVisibility(View.GONE);
+        }
+        else if(cameraId == Camera.CameraInfo.CAMERA_FACING_BACK) {
+            cameraSwitchBtn.setBackground(getResources()
+                    .getDrawable(R.drawable.ic_camera_front_white_24dp));
+            flashModeBtn.setVisibility(View.VISIBLE);
+        }
     }
 
     /**
@@ -522,7 +562,7 @@ public class CameraActivity extends AppCompatActivity {
      */
 
     private void createTempImgFile(byte[] bytes) {
-        BPUtils.logMethod(CLASS_TAG);
+        Utils.logMethod(CLASS_TAG);
 
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         String fileName = "IMG_" + timeStamp;
@@ -663,6 +703,20 @@ public class CameraActivity extends AppCompatActivity {
         view.startAnimation(animationSet);
     }
 
+    private void fadeRotateYAxisViewAnimation(View view, float fromAlpha, float toAlpha, long time1) {
+        AnimationSet animationSet = new AnimationSet(true);
+        AlphaAnimation fadeAnimation = new AlphaAnimation(fromAlpha, toAlpha);
+        ObjectAnimator objectAnimator = ObjectAnimator.ofFloat(view, "rotationY", 0.00F, 180.00F);
+
+        fadeAnimation.setDuration(time1);
+        objectAnimator.setDuration(time1);
+
+        animationSet.addAnimation(fadeAnimation);
+
+        view.startAnimation(animationSet);
+        objectAnimator.start();
+    }
+
     private void fadeViewAnimation(View view, float fromAlpha, float toAlpha, long time) {
         AnimationSet animationSet = new AnimationSet(true);
         AlphaAnimation fadeAnimation = new AlphaAnimation(fromAlpha, toAlpha);
@@ -686,7 +740,7 @@ public class CameraActivity extends AppCompatActivity {
 
         @Override
         public void run() {
-            BPUtils.logMethod(CLASS_TAG, "CameraThread");
+            Utils.logMethod(CLASS_TAG, "CameraThread");
 
             // Prepare the looper. Need this in order to instantiate the handler in this thread.
             Looper.prepare();
@@ -708,6 +762,7 @@ public class CameraActivity extends AppCompatActivity {
                             surfaceHolder = surfaceView.getHolder();
                             surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
                             surfaceHolder.addCallback(CameraThread.this);
+                            setCameraSwitches(currentCameraId);
                         }
                     });
                 }
@@ -727,14 +782,14 @@ public class CameraActivity extends AppCompatActivity {
 
         @Override
         public void surfaceCreated(final SurfaceHolder holder) {
-            BPUtils.logMethod(CLASS_TAG);
+            Utils.logMethod(CLASS_TAG);
             // When the Surface is created, set the preview display. Don't start it here.
 
             cameraHandler.post(new Runnable() {
                 @Override
                 public void run() {
                     try {
-                        BPUtils.logMethod(CLASS_TAG, "surfaceCreated");
+                        Utils.logMethod(CLASS_TAG, "surfaceCreated");
                         if(camera != null) {
                             camera.setPreviewDisplay(holder);
                         }
@@ -749,7 +804,7 @@ public class CameraActivity extends AppCompatActivity {
 
         @Override
         public void surfaceChanged(SurfaceHolder holder, int format, final int width, final int height) {
-            BPUtils.logMethod(CLASS_TAG);
+            Utils.logMethod(CLASS_TAG);
             // When the Surface is displayed for the first time, it calls this. Start preview here.
             // Tell Surface client how big the drawing area will be (preview size)
 
@@ -783,7 +838,7 @@ public class CameraActivity extends AppCompatActivity {
 
         @Override
         public void surfaceDestroyed(SurfaceHolder holder) {
-            BPUtils.logMethod(CLASS_TAG);
+            Utils.logMethod(CLASS_TAG);
             // Handled by onPause()
             // onPause() gets called before this.
         }
