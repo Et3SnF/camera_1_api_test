@@ -874,6 +874,7 @@ public class CameraActivity extends AppCompatActivity {
                             surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
                             surfaceHolder.addCallback(CameraThread.this);
                             getLatestCamState(currentCameraId);
+                            getLatestFlashState();
                         }
                     });
                 }
