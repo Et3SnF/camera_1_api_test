@@ -78,7 +78,8 @@ public class CameraActivity extends AppCompatActivity {
      */
 
     private Camera camera;
-    private static int currentCameraId = -1;
+    private int currentCameraId = -1;
+    private boolean isFrontCamActive = true;
     private SurfaceView surfaceView;
     private SurfaceHolder surfaceHolder; // connection to another object (Surface)
     private Camera.Size previewSize = null;
@@ -101,7 +102,6 @@ public class CameraActivity extends AppCompatActivity {
         ORIENTATION_FIX.append(Surface.ROTATION_270, 90);
     }
 
-    private static final int MEDIA_TYPE_IMAGE = 0;
     private static final int ERROR_NO_CAMERA_HARDWARE = 1;
     private static final int ERROR_NO_PHOTO_CAPTURE = 2;
     private static final int ERROR_MISSING_TEMP_FILE = 3;
@@ -195,8 +195,7 @@ public class CameraActivity extends AppCompatActivity {
         cameraSwitchBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                switchCameraIcons(isFrontFacing);
-                isFrontFacing = !isFrontFacing;
+                switchCamera();
             }
         });
 
@@ -296,7 +295,7 @@ public class CameraActivity extends AppCompatActivity {
 
     /**
      *
-     * Camera Methods
+     * Camera Setup Methods
      *
      */
 
@@ -389,10 +388,51 @@ public class CameraActivity extends AppCompatActivity {
         return cameraId;
     }
 
+    private Camera.Size getPreferredPreviewSize(int width, int height, Camera.Parameters parameters) {
+
+        BPUtils.logMethod(CLASS_TAG);
+
+        ArrayList<Camera.Size> supportedPreviewSizes = (ArrayList<Camera.Size>) parameters.getSupportedPreviewSizes();
+
+        for(Camera.Size option : supportedPreviewSizes) {
+            //Landscape Preview Sizes
+
+            if(width > height) {
+
+                if(option.width > width && option.height > height) {
+                    supportedPreviewSizes.add(option);
+                }
+
+            }
+            else {
+                if(option.width > height && option.height > width) {
+                    supportedPreviewSizes.add(option);
+                }
+            }
+        }
+
+        if(supportedPreviewSizes.size() > 0) {
+            return Collections.max(supportedPreviewSizes, new Comparator<Camera.Size>() {
+                @Override
+                public int compare(Camera.Size lhs, Camera.Size rhs) {
+                    return Long.signum(lhs.width * lhs.height - rhs.width * rhs.height);
+                }
+            });
+        }
+
+        return parameters.getSupportedPreviewSizes().get(0);
+    }
+
     private void startCameraThread() {
         cameraThread = new CameraThread();
         cameraThread.start();
     }
+
+    /**
+     *
+     * Camera Action Methods
+     *
+     */
 
     private void takePhoto() {
         cameraHandler.post(new Runnable() {
@@ -440,6 +480,46 @@ public class CameraActivity extends AppCompatActivity {
 
         startCameraThread();
     }
+
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
+    private void switchCamera() {
+        BPUtils.logMethod(CLASS_TAG);
+
+        BPUtils.logMethod(CLASS_TAG, "switchCamera");
+        // If the camera is facing back, change currentCameraId to be front
+        // else get camera id for back facing camera
+
+        if(isFrontCamActive) {
+            currentCameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
+            fadeViewAnimation(flashModeBtn, 1.00F, 0.00F, 400L);
+            flashModeBtn.setVisibility(View.GONE);
+
+            fadeRotateViewAnimation(cameraSwitchBtn, 1.00F, 0.00F, 400L);
+            cameraSwitchBtn.setVisibility(View.GONE);
+            cameraSwitchBtn.setBackground(getResources().getDrawable(R.drawable.ic_camera_rear_white_24dp));
+            fadeRotateViewAnimation(cameraSwitchBtn, 0.00F, 1.00F, 400L);
+            cameraSwitchBtn.setVisibility(View.VISIBLE);
+        }
+        else {
+            currentCameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
+            fadeViewAnimation(flashModeBtn, 0.00F, 1.00F, 400L);
+            flashModeBtn.setVisibility(View.VISIBLE);
+
+            fadeRotateViewAnimation(cameraSwitchBtn, 1.00F, 0.00F, 400L);
+            cameraSwitchBtn.setVisibility(View.GONE);
+            cameraSwitchBtn.setBackground(getResources().getDrawable(R.drawable.ic_camera_front_white_24dp));
+            fadeRotateViewAnimation(cameraSwitchBtn, 0.00F, 1.00F, 400L);
+            cameraSwitchBtn.setVisibility(View.VISIBLE);
+        }
+
+        isFrontCamActive = !isFrontCamActive;
+    }
+
+    /**
+     *
+     * Camera File Methods
+     *
+     */
 
     private void createTempImgFile(byte[] bytes) {
         BPUtils.logMethod(CLASS_TAG);
@@ -538,88 +618,6 @@ public class CameraActivity extends AppCompatActivity {
 //        return mediaFile;
 //    }
 
-    private void switchCameraFacing() {
-        BPUtils.logMethod(CLASS_TAG);
-
-        // If the camera is facing back, change currentCameraId to be front
-        // else get camera id for back facing camera
-
-        if(currentCameraId == Camera.CameraInfo.CAMERA_FACING_BACK) {
-            currentCameraId = Camera.CameraInfo.CAMERA_FACING_FRONT;
-            fadeRotateViewAnimation(flashModeBtn, 1.00F, 0.00F, 700L);
-            flashModeBtn.setVisibility(View.GONE);
-        }
-        else {
-            currentCameraId = Camera.CameraInfo.CAMERA_FACING_BACK;
-            fadeRotateViewAnimation(flashModeBtn, 0.00F, 1.00F, 700L);
-            flashModeBtn.setVisibility(View.VISIBLE);
-        }
-    }
-
-    private Camera.Size getPreferredPreviewSize(int width, int height, Camera.Parameters parameters) {
-
-        BPUtils.logMethod(CLASS_TAG);
-
-        ArrayList<Camera.Size> supportedPreviewSizes = (ArrayList<Camera.Size>) parameters.getSupportedPreviewSizes();
-
-        for(Camera.Size option : supportedPreviewSizes) {
-            //Landscape Preview Sizes
-
-            if(width > height) {
-
-                if(option.width > width && option.height > height) {
-                    supportedPreviewSizes.add(option);
-                }
-
-            }
-            else {
-                if(option.width > height && option.height > width) {
-                    supportedPreviewSizes.add(option);
-                }
-            }
-        }
-
-        if(supportedPreviewSizes.size() > 0) {
-            return Collections.max(supportedPreviewSizes, new Comparator<Camera.Size>() {
-                @Override
-                public int compare(Camera.Size lhs, Camera.Size rhs) {
-                    return Long.signum(lhs.width * lhs.height - rhs.width * rhs.height);
-                }
-            });
-        }
-
-        return parameters.getSupportedPreviewSizes().get(0);
-    }
-
-    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
-    private void switchCameraIcons(boolean isFrontFacing) {
-
-        BPUtils.logMethod(CLASS_TAG);
-
-        Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
-        if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-            isFrontFacing = true;
-        }
-        else if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK){
-            isFrontFacing = false;
-        }
-
-        if(isFrontFacing) {
-            fadeRotateViewAnimation(cameraSwitchBtn, 1.00F, 0.00F, 400L);
-            cameraSwitchBtn.setVisibility(View.GONE);
-            cameraSwitchBtn.setBackground(getResources().getDrawable(R.drawable.ic_camera_rear_white_24dp));
-            fadeRotateViewAnimation(cameraSwitchBtn, 0.00F, 1.00F, 400L);
-            cameraSwitchBtn.setVisibility(View.VISIBLE);
-        }
-        else {
-            fadeRotateViewAnimation(cameraSwitchBtn, 1.00F, 0.00F, 400L);
-            cameraSwitchBtn.setVisibility(View.GONE);
-            cameraSwitchBtn.setBackground(getResources().getDrawable(R.drawable.ic_camera_front_white_24dp));
-            fadeRotateViewAnimation(cameraSwitchBtn, 0.00F, 1.00F, 400L);
-            cameraSwitchBtn.setVisibility(View.VISIBLE);
-        }
-    }
-
     /**
      *
      * Animation Methods
@@ -650,14 +648,14 @@ public class CameraActivity extends AppCompatActivity {
 
     }
 
-    private void fadeRotateViewAnimation(View view, float fromAlpha, float toAlpha, long time1) {
+    private void fadeRotateViewAnimation(View view, float fromAlpha, float toAlpha, long time) {
         AnimationSet animationSet = new AnimationSet(true);
         AlphaAnimation fadeAnimation = new AlphaAnimation(fromAlpha, toAlpha);
         RotateAnimation rotateAnimation = new RotateAnimation(0, 360, Animation.RELATIVE_TO_SELF,
                 0.50F, Animation.RELATIVE_TO_SELF, 0.50F);
 
-        fadeAnimation.setDuration(time1);
-        rotateAnimation.setDuration(time1);
+        fadeAnimation.setDuration(time);
+        rotateAnimation.setDuration(time);
 
         animationSet.addAnimation(fadeAnimation);
         animationSet.addAnimation(rotateAnimation);
@@ -665,19 +663,15 @@ public class CameraActivity extends AppCompatActivity {
         view.startAnimation(animationSet);
     }
 
-    private void quickFadeInOutAnimation(View view, float fromAlpha, float toAlpha, long time1, long time2) {
+    private void fadeViewAnimation(View view, float fromAlpha, float toAlpha, long time) {
         AnimationSet animationSet = new AnimationSet(true);
-        AlphaAnimation fadeInAnimation = new AlphaAnimation(fromAlpha, toAlpha);
-        AlphaAnimation fadeOutAnimation = new AlphaAnimation(toAlpha, fromAlpha);
+        AlphaAnimation fadeAnimation = new AlphaAnimation(fromAlpha, toAlpha);
 
-        fadeInAnimation.setInterpolator(new AccelerateDecelerateInterpolator());
-        fadeOutAnimation.setInterpolator(new AccelerateDecelerateInterpolator());
+        fadeAnimation.setInterpolator(new AccelerateDecelerateInterpolator());
 
-        fadeInAnimation.setDuration(time1);
-        fadeOutAnimation.setDuration(time2);
+        fadeAnimation.setDuration(time);
 
-        animationSet.addAnimation(fadeInAnimation);
-        animationSet.addAnimation(fadeOutAnimation);
+        animationSet.addAnimation(fadeAnimation);
 
         view.startAnimation(animationSet);
     }
@@ -732,19 +726,25 @@ public class CameraActivity extends AppCompatActivity {
         }
 
         @Override
-        public void surfaceCreated(SurfaceHolder holder) {
+        public void surfaceCreated(final SurfaceHolder holder) {
             BPUtils.logMethod(CLASS_TAG);
             // When the Surface is created, set the preview display. Don't start it here.
 
-            try {
-                if(camera != null) {
-                    camera.setPreviewDisplay(holder);
+            cameraHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        BPUtils.logMethod(CLASS_TAG, "surfaceCreated");
+                        if(camera != null) {
+                            camera.setPreviewDisplay(holder);
+                        }
+                    }
+                    catch (IOException e) {
+                        Log.e(TAG, "There was an error setting up the preview display");
+                        e.printStackTrace();
+                    }
                 }
-            }
-            catch (IOException e) {
-                Log.e(TAG, "There was an error setting up the preview display");
-                e.printStackTrace();
-            }
+            });
         }
 
         @Override
