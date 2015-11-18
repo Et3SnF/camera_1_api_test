@@ -34,6 +34,7 @@ import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -81,6 +82,8 @@ public class MainActivity extends AppCompatActivity {
     private SurfaceView surfaceView;
     private SurfaceHolder surfaceHolder; // connection to another object (Surface)
     private Camera.Size previewSize = null;
+
+    private File tempImgFile;
 
     private CameraThread cameraThread;
     // Handler will be instantiated in run()
@@ -267,6 +270,9 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
                 camera.stopPreview();
                 releaseCamera();
+
+                // Delete temp file if the user somehow pauses the application or gets out of it
+                deleteTempImgFile(tempImgFile);
             }
         });
     }
@@ -294,12 +300,6 @@ public class MainActivity extends AppCompatActivity {
      * Camera Methods
      *
      */
-
-    private void previewCaptureFlashAnimation(View view) {
-        BPUtils.logMethod(CLASS_TAG);
-
-        quickFadeInOutAnimation(view, 0.00F, 0.05F, 150L, 150L);
-    }
 
     private boolean isCameraHardwareAvailable() {
         BPUtils.logMethod(CLASS_TAG);
@@ -406,7 +406,7 @@ public class MainActivity extends AppCompatActivity {
                         @Override
                         public void onPictureTaken(byte[] data, Camera camera) {
                             BPUtils.logMethod(CLASS_TAG, "takePhoto");
-
+                            createTempImgFile(data);
                         }
                     });
                 } else {
@@ -424,6 +424,14 @@ public class MainActivity extends AppCompatActivity {
 
     private void restartCameraOnCancel() {
 
+        cameraHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                BPUtils.logMethod(CLASS_TAG);
+                deleteTempImgFile(tempImgFile);
+            }
+        });
+
         releaseCamera();
 
         if(cameraThread != null) {
@@ -433,6 +441,40 @@ public class MainActivity extends AppCompatActivity {
 
         previewLayout.removeView(surfaceView);
         startCameraThread();
+    }
+
+    private void createTempImgFile(byte[] bytes) {
+        BPUtils.logMethod(CLASS_TAG);
+
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String fileName = "IMG_" + timeStamp;
+
+        try {
+            final File tempFile = File.createTempFile(fileName, ".jpg", getCacheDir());
+            Log.v(TAG, "Location of Cache Directory: " + getCacheDir().getAbsolutePath() + " | File Name: " + tempFile.getName());
+
+            // Create a stream to write to a file. Parameter takes a file of interest
+            FileOutputStream fileOutputStream = new FileOutputStream(tempFile);
+
+            // Begin the writing process
+            fileOutputStream.write(bytes);
+            fileOutputStream.close();
+
+            tempImgFile = tempFile;
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void deleteTempImgFile(File file) {
+        if(file != null) {
+            file.delete();
+            Log.v(TAG, "Temporary File Deleted");
+        }
+        else {
+            Log.e(TAG, "Unable to delete file. Null.");
+        }
     }
 
     private static File getOutputMediaFile(int type) {
