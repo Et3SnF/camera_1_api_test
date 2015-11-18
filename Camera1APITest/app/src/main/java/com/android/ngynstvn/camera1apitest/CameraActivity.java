@@ -9,7 +9,6 @@ import android.content.pm.PackageManager;
 import android.hardware.Camera;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.support.v7.app.AppCompatActivity;
@@ -36,13 +35,14 @@ import android.widget.RelativeLayout;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 
-public class MainActivity extends AppCompatActivity {
+public class CameraActivity extends AppCompatActivity {
 
     /**
      * STEPS TO SETTING UP CAMERA 1
@@ -68,8 +68,8 @@ public class MainActivity extends AppCompatActivity {
      *
      */
 
-    private static final String TAG = "(" + MainActivity.class.getSimpleName() + ") ";
-    private static final String CLASS_TAG = MainActivity.class.getSimpleName();
+    private static final String TAG = "(" + CameraActivity.class.getSimpleName() + ") ";
+    private static final String CLASS_TAG = CameraActivity.class.getSimpleName();
 
     /**
      *
@@ -104,6 +104,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int MEDIA_TYPE_IMAGE = 0;
     private static final int ERROR_NO_CAMERA_HARDWARE = 1;
     private static final int ERROR_NO_PHOTO_CAPTURE = 2;
+    private static final int ERROR_MISSING_TEMP_FILE = 3;
 
     /**
      *
@@ -241,7 +242,8 @@ public class MainActivity extends AppCompatActivity {
         approveCaptureBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
+                BPUtils.logMethod(CLASS_TAG, "approveCaptureBtn");
+                getTempImgFileUri(tempImgFile);
             }
         });
 
@@ -270,9 +272,6 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
                 camera.stopPreview();
                 releaseCamera();
-
-                // Delete temp file if the user somehow pauses the application or gets out of it
-                deleteTempImgFile(tempImgFile);
             }
         });
     }
@@ -439,7 +438,6 @@ public class MainActivity extends AppCompatActivity {
             cameraThread = null;
         }
 
-        previewLayout.removeView(surfaceView);
         startCameraThread();
     }
 
@@ -477,37 +475,68 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private static File getOutputMediaFile(int type) {
-        BPUtils.logMethod(CLASS_TAG);
+    private void getTempImgFileUri(final File file) {
 
-        // To be safe, you should check that the SDCard is mounted
-        // using Environment.getExternalStorageState() before doing this.
+        cameraHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                if(file != null) {
+                    Log.v(TAG, "tempImage is not null");
+                    URI imageUri = file.toURI();
+                    Log.v(TAG, "URI: " + imageUri.getPath());
+//            Intent intent = new Intent(CameraActivity.this, ImageUploadActivity.class);
+//            intent.putExtra("image_uri", imageUri);
+//            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+//            startActivity(intent);
+                }
+                else {
+                    Log.v(TAG, "tempImage is null");
 
-        File storageDirectory = new File(Environment.getExternalStorageDirectory() + "/Blocparty/");
-        // This location works best if you want the created images to be shared
-        // between applications and persist after your app has been uninstalled.
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            ErrorDialog.newInstance(ERROR_MISSING_TEMP_FILE).show(getFragmentManager(),
+                                    "missing_tmp_file");
+                        }
+                    });
 
-        // Create the storage directory if it does not exist
-        if (! storageDirectory.exists()){
-            if (! storageDirectory.mkdirs()){
-                Log.d(TAG, "Unable to create directory.");
-                return null;
+                    restartCameraOnCancel();
+                }
             }
-        }
-
-        // Create a media file name
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        File mediaFile;
-        if (type == MEDIA_TYPE_IMAGE){
-            mediaFile = new File(storageDirectory.getPath() + File.separator +
-                    "IMG_"+ timeStamp + ".jpg");
-        }
-        else {
-            return null;
-        }
-
-        return mediaFile;
+        });
     }
+
+//    private static File getOutputMediaFile(int type) {
+//        BPUtils.logMethod(CLASS_TAG);
+//
+//        // To be safe, you should check that the SDCard is mounted
+//        // using Environment.getExternalStorageState() before doing this.
+//
+//        File storageDirectory = new File(Environment.getExternalStorageDirectory() + "/Blocparty/");
+//        // This location works best if you want the created images to be shared
+//        // between applications and persist after your app has been uninstalled.
+//
+//        // Create the storage directory if it does not exist
+//        if (! storageDirectory.exists()){
+//            if (! storageDirectory.mkdirs()){
+//                Log.d(TAG, "Unable to create directory.");
+//                return null;
+//            }
+//        }
+//
+//        // Create a media file name
+//        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+//        File mediaFile;
+//        if (type == MEDIA_TYPE_IMAGE){
+//            mediaFile = new File(storageDirectory.getPath() + File.separator +
+//                    "IMG_"+ timeStamp + ".jpg");
+//        }
+//        else {
+//            return null;
+//        }
+//
+//        return mediaFile;
+//    }
 
     private void switchCameraFacing() {
         BPUtils.logMethod(CLASS_TAG);
@@ -680,7 +709,7 @@ public class MainActivity extends AppCompatActivity {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            surfaceView = new SurfaceView(MainActivity.this);
+                            surfaceView = new SurfaceView(CameraActivity.this);
                             previewLayout.addView(surfaceView);
                             surfaceHolder = surfaceView.getHolder();
                             surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
@@ -790,6 +819,9 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 case ERROR_NO_PHOTO_CAPTURE:
                     errorMessage = "Unable to capture photo.";
+                    break;
+                case ERROR_MISSING_TEMP_FILE:
+                    errorMessage = "There was an issue with the previous capture. Try again.";
                     break;
             }
 
