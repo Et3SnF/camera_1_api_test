@@ -219,7 +219,7 @@ public class CameraActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
 
-                restartCameraOnCancel();
+                restartCamera();
 
                 int leftRightTransWidth = cancelCaptureBtn.getMeasuredWidth();
 
@@ -454,24 +454,16 @@ public class CameraActivity extends AppCompatActivity {
         });
     }
 
-    private void restartCameraOnCancel() {
-
+    private void restartCamera() {
         cameraHandler.post(new Runnable() {
             @Override
             public void run() {
+                camera.stopPreview();
                 Utils.logMethod(CLASS_TAG);
                 deleteTempImgFile(tempImgFile);
+                camera.startPreview();
             }
         });
-
-        releaseCamera();
-
-        if(cameraThread != null) {
-            cameraThread.interrupt();
-            cameraThread = null;
-        }
-
-        startCameraThread();
     }
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
@@ -718,7 +710,7 @@ public class CameraActivity extends AppCompatActivity {
                         }
                     });
 
-                    restartCameraOnCancel();
+                    restartCamera();
                 }
             }
         });
