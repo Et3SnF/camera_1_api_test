@@ -211,7 +211,7 @@ public class CameraActivity extends AppCompatActivity {
         flashModeBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                switchFlashMode();
+                toggleFlashMode();
             }
         });
 
@@ -558,7 +558,7 @@ public class CameraActivity extends AppCompatActivity {
     }
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
-    private void getFlashMode() {
+    private void getFlashAction() {
 
         SharedPreferences sharedPreferences = getSharedPreferences(Utils.FILE_NAME, MODE_PRIVATE);
         String mode = sharedPreferences.getString(Utils.FLASH_STATE, FLASH_MODE_OFF);
@@ -574,7 +574,6 @@ public class CameraActivity extends AppCompatActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        flashModeBtn.setBackground(getResources().getDrawable(R.drawable.ic_flash_off_white_24dp));
                         Utils.putSPrefStrValue(CameraActivity.this, Utils.FILE_NAME, Utils.FLASH_STATE, FLASH_MODE_OFF);
                     }
                 });
@@ -587,7 +586,6 @@ public class CameraActivity extends AppCompatActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        flashModeBtn.setBackground(getResources().getDrawable(R.drawable.ic_flash_on_white_24dp));
                         Utils.putSPrefStrValue(CameraActivity.this, Utils.FILE_NAME, Utils.FLASH_STATE, FLASH_MODE_ON);
                     }
                 });
@@ -599,7 +597,6 @@ public class CameraActivity extends AppCompatActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        flashModeBtn.setBackground(getResources().getDrawable(R.drawable.ic_flash_auto_white_24dp));
                         Utils.putSPrefStrValue(CameraActivity.this, Utils.FILE_NAME, Utils.FLASH_STATE, FLASH_MODE_AUTO);
                     }
                 });
@@ -610,46 +607,31 @@ public class CameraActivity extends AppCompatActivity {
     }
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
-    private void switchFlashMode() {
+    private void toggleFlashMode() {
 
         if(flashMode.equalsIgnoreCase(FLASH_MODE_OFF)) {
             flashMode = FLASH_MODE_ON;
             Utils.putSPrefStrValue(CameraActivity.this, Utils.FILE_NAME, Utils.FLASH_STATE, FLASH_MODE_ON);
-
-            fadeRotateViewAnimation(flashModeBtn, 1.00F, 0.00F, 400L);
-            toggleFlashMode(flashModeBtn, 0.00F, 1.00F, 400L, R.drawable.ic_flash_on_white_24dp);
+            toggleFlashModeAnimation(flashModeBtn, 0.00F, 1.00F, 400L, R.drawable.ic_flash_on_white_24dp);
         }
         else if(flashMode.equalsIgnoreCase(FLASH_MODE_ON)) {
             flashMode = FLASH_MODE_AUTO;
             Utils.putSPrefStrValue(CameraActivity.this, Utils.FILE_NAME, Utils.FLASH_STATE, FLASH_MODE_AUTO);
-            toggleFlashMode(flashModeBtn, 0.00F, 1.00F, 400L, R.drawable.ic_flash_auto_white_24dp);
+            toggleFlashModeAnimation(flashModeBtn, 0.00F, 1.00F, 400L, R.drawable.ic_flash_auto_white_24dp);
         }
         else if(flashMode.equalsIgnoreCase(FLASH_MODE_AUTO)) {
             flashMode = FLASH_MODE_OFF;
             Utils.putSPrefStrValue(CameraActivity.this, Utils.FILE_NAME, Utils.FLASH_STATE, FLASH_MODE_OFF);
-            toggleFlashMode(flashModeBtn, 0.00F, 1.00F, 400L, R.drawable.ic_flash_off_white_24dp);
+            toggleFlashModeAnimation(flashModeBtn, 0.00F, 1.00F, 400L, R.drawable.ic_flash_off_white_24dp);
         }
         else {
             // Worst case scenario
             flashMode = FLASH_MODE_OFF;
             Utils.putSPrefStrValue(CameraActivity.this, Utils.FILE_NAME, Utils.FLASH_STATE, FLASH_MODE_OFF);
-            toggleFlashMode(flashModeBtn, 0.00F, 1.00F, 400L, R.drawable.ic_flash_off_white_24dp);
+            toggleFlashModeAnimation(flashModeBtn, 0.00F, 1.00F, 400L, R.drawable.ic_flash_off_white_24dp);
         }
 
-        getFlashMode();
-
-    }
-
-    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
-    private void toggleFlashMode(View view, float fromAlpha, float toAlpha, long time, int drawableRef) {
-
-        // fromAlpha must be less than toAlpha
-
-        fadeRotateViewAnimation(flashModeBtn, toAlpha, fromAlpha, time);
-        view.setVisibility(View.GONE);
-        view.setBackground(getResources().getDrawable(drawableRef));
-        fadeRotateViewAnimation(flashModeBtn, fromAlpha, toAlpha, time);
-        view.setVisibility(View.VISIBLE);
+        getFlashAction();
     }
 
     /**
@@ -760,6 +742,18 @@ public class CameraActivity extends AppCompatActivity {
      * Animation Methods
      *
      */
+
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
+    private void toggleFlashModeAnimation(View view, float fromAlpha, float toAlpha, long time, int drawableRef) {
+
+        // fromAlpha must be less than toAlpha
+
+        fadeRotateViewAnimation(flashModeBtn, toAlpha, fromAlpha, time);
+        view.setVisibility(View.GONE);
+        view.setBackground(getResources().getDrawable(drawableRef));
+        fadeRotateViewAnimation(flashModeBtn, fromAlpha, toAlpha, time);
+        view.setVisibility(View.VISIBLE);
+    }
 
     private void moveFadeAnimation(ViewGroup viewGroup, float fromX, float toX, float fromY, float toY,
                                    float fromAlpha, float toAlpha, long time1, long time2) {
