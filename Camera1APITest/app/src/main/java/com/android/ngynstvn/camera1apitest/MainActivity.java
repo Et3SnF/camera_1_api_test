@@ -100,6 +100,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int MEDIA_TYPE_IMAGE = 0;
     private static final int ERROR_NO_CAMERA_HARDWARE = 1;
+    private static final int ERROR_NO_PHOTO_CAPTURE = 2;
 
     /**
      *
@@ -159,6 +160,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
 
+                takePhoto();
 
                 int upDownTransHeight = bottomIconsHolder.getMeasuredHeight();
 
@@ -205,6 +207,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
 
+                restartCameraOnCancel();
+
                 int leftRightTransWidth = cancelCaptureBtn.getMeasuredWidth();
 
                 moveFadeAnimation(cancelCaptureBtn, displayMetrics.widthPixels
@@ -250,8 +254,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         BPUtils.logMethod(CLASS_TAG);
         super.onResume();
-        cameraThread = new CameraThread();
-        cameraThread.start();
+        startCameraThread();
     }
 
     @Override
@@ -327,7 +330,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void releaseCamera() {
         BPUtils.logMethod(CLASS_TAG);
-        
+
         if (camera != null) {
             camera.release();
             camera = null;
@@ -385,6 +388,51 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return cameraId;
+    }
+
+    private void startCameraThread() {
+        cameraThread = new CameraThread();
+        cameraThread.start();
+    }
+
+    private void takePhoto() {
+        cameraHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                BPUtils.logMethod(CLASS_TAG);
+
+                if (camera != null) {
+                    camera.takePicture(null, null, new Camera.PictureCallback() {
+                        @Override
+                        public void onPictureTaken(byte[] data, Camera camera) {
+                            BPUtils.logMethod(CLASS_TAG, "takePhoto");
+
+                        }
+                    });
+                } else {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            BPUtils.logMethod(CLASS_TAG, "takePhoto");
+                            ErrorDialog.newInstance(ERROR_NO_PHOTO_CAPTURE).show(getFragmentManager(), "no_capture_dialog");
+                        }
+                    });
+                }
+            }
+        });
+    }
+
+    private void restartCameraOnCancel() {
+
+        releaseCamera();
+
+        if(cameraThread != null) {
+            cameraThread.interrupt();
+            cameraThread = null;
+        }
+
+        previewLayout.removeView(surfaceView);
+        startCameraThread();
     }
 
     private static File getOutputMediaFile(int type) {
@@ -565,48 +613,6 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      *
-     * ErrorDialog
-     *
-     */
-
-    public static class ErrorDialog extends DialogFragment {
-
-        int errorCode = 0;
-        String errorMessage;
-
-        public static ErrorDialog newInstance(int errorCode) {
-            ErrorDialog errorDialog = new ErrorDialog();
-            Bundle bundle = new Bundle();
-            bundle.putInt("errorCode", errorCode);
-            errorDialog.setArguments(bundle);
-            return errorDialog;
-        }
-
-        @Override
-        public Dialog onCreateDialog(Bundle savedInstanceState) {
-
-            errorCode = getArguments().getInt("errorCode");
-
-            switch (errorCode) {
-                case ERROR_NO_CAMERA_HARDWARE:
-                    errorMessage = "No camera hardware detected in the camera.";
-                    break;
-            }
-
-            return new AlertDialog.Builder(getActivity())
-                    .setMessage(errorMessage)
-                    .setPositiveButton("Ok", new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            dismiss();
-                        }
-                    })
-                    .create();
-        }
-    }
-
-    /**
-     *
      * Camera Thread
      *
      */
@@ -654,61 +660,106 @@ public class MainActivity extends AppCompatActivity {
             Looper.loop();
         }
 
-            @Override
-            public void surfaceCreated(SurfaceHolder holder) {
-                BPUtils.logMethod(CLASS_TAG);
-                // When the Surface is created, set the preview display. Don't start it here.
+        @Override
+        public void surfaceCreated(SurfaceHolder holder) {
+            BPUtils.logMethod(CLASS_TAG);
+            // When the Surface is created, set the preview display. Don't start it here.
 
-                try {
-                    if(camera != null) {
-                        camera.setPreviewDisplay(holder);
-                    }
-                }
-                catch (IOException e) {
-                    Log.e(TAG, "There was an error setting up the preview display");
-                    e.printStackTrace();
+            try {
+                if(camera != null) {
+                    camera.setPreviewDisplay(holder);
                 }
             }
+            catch (IOException e) {
+                Log.e(TAG, "There was an error setting up the preview display");
+                e.printStackTrace();
+            }
+        }
 
-            @Override
-            public void surfaceChanged(SurfaceHolder holder, int format, final int width, final int height) {
-                BPUtils.logMethod(CLASS_TAG);
-                // When the Surface is displayed for the first time, it calls this. Start preview here.
-                // Tell Surface client how big the drawing area will be (preview size)
+        @Override
+        public void surfaceChanged(SurfaceHolder holder, int format, final int width, final int height) {
+            BPUtils.logMethod(CLASS_TAG);
+            // When the Surface is displayed for the first time, it calls this. Start preview here.
+            // Tell Surface client how big the drawing area will be (preview size)
 
-                if(camera == null) {
-                    Log.e(TAG, "Camera is null inside surfaceChanged()");
-                    return;
+            if(camera == null) {
+                Log.e(TAG, "Camera is null inside surfaceChanged()");
+                return;
+            }
+
+            cameraHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    Camera.Parameters cameraParameters = camera.getParameters();
+                    previewSize = getPreferredPreviewSize(width, height, cameraParameters);
+                    Log.v(TAG, "Current Preview Size: (" + previewSize.width + ", " + previewSize.height + ")");
+
+                    cameraParameters.setPreviewSize(previewSize.width, previewSize.height);
+                    camera.setParameters(cameraParameters);
+
+                    try {
+                        int rotation = getWindowManager().getDefaultDisplay().getRotation();
+                        camera.setDisplayOrientation(ORIENTATION_FIX.get(rotation));
+                        camera.startPreview();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Camera was unable to start preview");
+                        e.printStackTrace();
+                        releaseCamera();
+                    }
                 }
+            });
+        }
 
-                cameraHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        Camera.Parameters cameraParameters = camera.getParameters();
-                        previewSize = getPreferredPreviewSize(width, height, cameraParameters);
-                        Log.v(TAG, "Current Preview Size: (" + previewSize.width + ", " + previewSize.height + ")");
+        @Override
+        public void surfaceDestroyed(SurfaceHolder holder) {
+            BPUtils.logMethod(CLASS_TAG);
+            // Handled by onPause()
+            // onPause() gets called before this.
+        }
+    }
 
-                        cameraParameters.setPreviewSize(previewSize.width, previewSize.height);
-                        camera.setParameters(cameraParameters);
+    /**
+     *
+     * ErrorDialog
+     *
+     */
 
-                        try {
-                            int rotation = getWindowManager().getDefaultDisplay().getRotation();
-                            camera.setDisplayOrientation(ORIENTATION_FIX.get(rotation));
-                            camera.startPreview();
-                        } catch (Exception e) {
-                            Log.e(TAG, "Camera was unable to start preview");
-                            e.printStackTrace();
-                            releaseCamera();
+    public static class ErrorDialog extends DialogFragment {
+
+        int errorCode = 0;
+        String errorMessage;
+
+        public static ErrorDialog newInstance(int errorCode) {
+            ErrorDialog errorDialog = new ErrorDialog();
+            Bundle bundle = new Bundle();
+            bundle.putInt("errorCode", errorCode);
+            errorDialog.setArguments(bundle);
+            return errorDialog;
+        }
+
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+
+            errorCode = getArguments().getInt("errorCode");
+
+            switch (errorCode) {
+                case ERROR_NO_CAMERA_HARDWARE:
+                    errorMessage = "No camera hardware detected in the camera.";
+                    break;
+                case ERROR_NO_PHOTO_CAPTURE:
+                    errorMessage = "Unable to capture photo.";
+                    break;
+            }
+
+            return new AlertDialog.Builder(getActivity())
+                    .setMessage(errorMessage)
+                    .setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            dismiss();
                         }
-                    }
-                });
-            }
-
-            @Override
-            public void surfaceDestroyed(SurfaceHolder holder) {
-                BPUtils.logMethod(CLASS_TAG);
-                // Handled by onPause()
-                // onPause() gets called before this.
-            }
+                    })
+                    .create();
+        }
     }
 }
