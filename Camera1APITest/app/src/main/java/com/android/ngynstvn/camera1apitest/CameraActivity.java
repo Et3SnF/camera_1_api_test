@@ -487,11 +487,16 @@ public class CameraActivity extends AppCompatActivity {
                     Utils.putSPrefBooleanValue(CameraActivity.this, Utils.FILE_NAME,
                             Utils.CAM_STATE, false);
 
-                    camera.stopPreview();
+                    releaseCamera();
+
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            startCameraThread();
+                        }
+                    });
                 }
             });
-
-            startCameraThread();
 
             fadeViewAnimation(flashModeBtn, 0.00F, 1.00F, 700L);
             flashModeBtn.setVisibility(View.VISIBLE);
@@ -511,9 +516,14 @@ public class CameraActivity extends AppCompatActivity {
                     Utils.putSPrefBooleanValue(CameraActivity.this, Utils.FILE_NAME,
                             Utils.CAM_STATE, true);
 
-                    camera.stopPreview();
                     releaseCamera();
-                    startCameraThread();
+
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            startCameraThread();
+                        }
+                    });
                 }
             });
 
