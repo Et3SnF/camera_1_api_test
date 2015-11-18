@@ -110,6 +110,11 @@ public class CameraActivity extends AppCompatActivity {
     private static final int ERROR_NO_PHOTO_CAPTURE = 2;
     private static final int ERROR_MISSING_TEMP_FILE = 3;
 
+    private static String currentFlashMode = Camera.Parameters.FLASH_MODE_OFF;
+    private static final String FLASH_MODE_OFF = Camera.Parameters.FLASH_MODE_OFF;
+    private static final String FLASH_MODE_ON = Camera.Parameters.FLASH_MODE_ON;
+    private static final String FLASH_MODE_AUTO = Camera.Parameters.FLASH_MODE_AUTO;
+
     /**
      *
      * View Variables
@@ -132,12 +137,6 @@ public class CameraActivity extends AppCompatActivity {
     DisplayMetrics displayMetrics = new DisplayMetrics();
     private long transDuration = 200L;
     private long fadeDuration = 600L;
-
-    private String flashMode = Camera.Parameters.FLASH_MODE_OFF;
-
-    private static final String FLASH_MODE_OFF = Camera.Parameters.FLASH_MODE_OFF;
-    private static final String FLASH_MODE_ON = Camera.Parameters.FLASH_MODE_ON;
-    private static final String FLASH_MODE_AUTO = Camera.Parameters.FLASH_MODE_AUTO;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -609,24 +608,24 @@ public class CameraActivity extends AppCompatActivity {
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
     private void toggleFlashMode() {
 
-        if(flashMode.equalsIgnoreCase(FLASH_MODE_OFF)) {
-            flashMode = FLASH_MODE_ON;
+        if(currentFlashMode.equalsIgnoreCase(FLASH_MODE_OFF)) {
+            currentFlashMode = FLASH_MODE_ON;
             Utils.putSPrefStrValue(CameraActivity.this, Utils.FILE_NAME, Utils.FLASH_STATE, FLASH_MODE_ON);
             toggleFlashModeAnimation(flashModeBtn, 0.00F, 1.00F, 400L, R.drawable.ic_flash_on_white_24dp);
         }
-        else if(flashMode.equalsIgnoreCase(FLASH_MODE_ON)) {
-            flashMode = FLASH_MODE_AUTO;
+        else if(currentFlashMode.equalsIgnoreCase(FLASH_MODE_ON)) {
+            currentFlashMode = FLASH_MODE_AUTO;
             Utils.putSPrefStrValue(CameraActivity.this, Utils.FILE_NAME, Utils.FLASH_STATE, FLASH_MODE_AUTO);
             toggleFlashModeAnimation(flashModeBtn, 0.00F, 1.00F, 400L, R.drawable.ic_flash_auto_white_24dp);
         }
-        else if(flashMode.equalsIgnoreCase(FLASH_MODE_AUTO)) {
-            flashMode = FLASH_MODE_OFF;
+        else if(currentFlashMode.equalsIgnoreCase(FLASH_MODE_AUTO)) {
+            currentFlashMode = FLASH_MODE_OFF;
             Utils.putSPrefStrValue(CameraActivity.this, Utils.FILE_NAME, Utils.FLASH_STATE, FLASH_MODE_OFF);
             toggleFlashModeAnimation(flashModeBtn, 0.00F, 1.00F, 400L, R.drawable.ic_flash_off_white_24dp);
         }
         else {
             // Worst case scenario
-            flashMode = FLASH_MODE_OFF;
+            currentFlashMode = FLASH_MODE_OFF;
             Utils.putSPrefStrValue(CameraActivity.this, Utils.FILE_NAME, Utils.FLASH_STATE, FLASH_MODE_OFF);
             toggleFlashModeAnimation(flashModeBtn, 0.00F, 1.00F, 400L, R.drawable.ic_flash_off_white_24dp);
         }
@@ -638,17 +637,17 @@ public class CameraActivity extends AppCompatActivity {
     private void getLatestFlashState() {
         Utils.logMethod(CLASS_TAG);
         SharedPreferences sharedPreferences = getSharedPreferences(Utils.FILE_NAME, MODE_PRIVATE);
-        flashMode = sharedPreferences.getString(Utils.FLASH_STATE, FLASH_MODE_OFF);
+        currentFlashMode = sharedPreferences.getString(Utils.FLASH_STATE, FLASH_MODE_OFF);
 
-        if(flashMode.equalsIgnoreCase(FLASH_MODE_OFF)) {
+        if(currentFlashMode.equalsIgnoreCase(FLASH_MODE_OFF)) {
             flashModeBtn.setBackground(getResources()
                     .getDrawable(R.drawable.ic_flash_off_white_24dp));
         }
-        else if(flashMode.equalsIgnoreCase(FLASH_MODE_ON)) {
+        else if(currentFlashMode.equalsIgnoreCase(FLASH_MODE_ON)) {
             flashModeBtn.setBackground(getResources()
                     .getDrawable(R.drawable.ic_flash_on_white_24dp));
         }
-        else if(flashMode.equalsIgnoreCase(FLASH_MODE_AUTO)) {
+        else if(currentFlashMode.equalsIgnoreCase(FLASH_MODE_AUTO)) {
             flashModeBtn.setBackground(getResources()
                     .getDrawable(R.drawable.ic_flash_auto_white_24dp));
         }
