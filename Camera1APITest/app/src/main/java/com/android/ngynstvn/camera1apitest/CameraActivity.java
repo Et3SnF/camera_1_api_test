@@ -634,6 +634,27 @@ public class CameraActivity extends AppCompatActivity {
         getFlashAction();
     }
 
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
+    private void getLatestFlashState() {
+        Utils.logMethod(CLASS_TAG);
+        SharedPreferences sharedPreferences = getSharedPreferences(Utils.FILE_NAME, MODE_PRIVATE);
+        flashMode = sharedPreferences.getString(Utils.FLASH_STATE, FLASH_MODE_OFF);
+
+        if(flashMode.equalsIgnoreCase(FLASH_MODE_OFF)) {
+            flashModeBtn.setBackground(getResources()
+                    .getDrawable(R.drawable.ic_flash_off_white_24dp));
+        }
+        else if(flashMode.equalsIgnoreCase(FLASH_MODE_ON)) {
+            flashModeBtn.setBackground(getResources()
+                    .getDrawable(R.drawable.ic_flash_on_white_24dp));
+        }
+        else if(flashMode.equalsIgnoreCase(FLASH_MODE_AUTO)) {
+            flashModeBtn.setBackground(getResources()
+                    .getDrawable(R.drawable.ic_flash_auto_white_24dp));
+        }
+    }
+
+
     /**
      *
      * Camera File Methods
