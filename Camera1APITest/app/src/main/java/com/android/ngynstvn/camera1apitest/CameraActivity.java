@@ -219,7 +219,7 @@ public class CameraActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
 
-                restartCameraOnCancel();
+                restartCamera();
 
                 int leftRightTransWidth = cancelCaptureBtn.getMeasuredWidth();
 
@@ -454,24 +454,21 @@ public class CameraActivity extends AppCompatActivity {
         });
     }
 
-    private void restartCameraOnCancel() {
+    private void restartCamera() {
 
         cameraHandler.post(new Runnable() {
             @Override
             public void run() {
-                Utils.logMethod(CLASS_TAG);
-                deleteTempImgFile(tempImgFile);
+                if (cameraThread.isAlive()) {
+                    camera.stopPreview();
+                    Utils.logMethod(CLASS_TAG);
+                    deleteTempImgFile(tempImgFile);
+                    camera.startPreview();
+                } else {
+
+                }
             }
         });
-
-        releaseCamera();
-
-        if(cameraThread != null) {
-            cameraThread.interrupt();
-            cameraThread = null;
-        }
-
-        startCameraThread();
     }
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
@@ -490,16 +487,11 @@ public class CameraActivity extends AppCompatActivity {
                     Utils.putSPrefBooleanValue(CameraActivity.this, Utils.FILE_NAME,
                             Utils.CAM_STATE, false);
 
-                    releaseCamera();
-
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            startCameraThread();
-                        }
-                    });
+                    camera.stopPreview();
                 }
             });
+
+            startCameraThread();
 
             fadeViewAnimation(flashModeBtn, 0.00F, 1.00F, 700L);
             flashModeBtn.setVisibility(View.VISIBLE);
@@ -519,14 +511,9 @@ public class CameraActivity extends AppCompatActivity {
                     Utils.putSPrefBooleanValue(CameraActivity.this, Utils.FILE_NAME,
                             Utils.CAM_STATE, true);
 
+                    camera.stopPreview();
                     releaseCamera();
-
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            startCameraThread();
-                        }
-                    });
+                    startCameraThread();
                 }
             });
 
@@ -718,7 +705,7 @@ public class CameraActivity extends AppCompatActivity {
                         }
                     });
 
-                    restartCameraOnCancel();
+                    restartCamera();
                 }
             }
         });
