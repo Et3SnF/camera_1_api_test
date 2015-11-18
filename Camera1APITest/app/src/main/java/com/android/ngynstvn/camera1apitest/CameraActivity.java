@@ -132,7 +132,12 @@ public class CameraActivity extends AppCompatActivity {
     DisplayMetrics displayMetrics = new DisplayMetrics();
     private long transDuration = 200L;
     private long fadeDuration = 600L;
-    private boolean isFrontFacing = false;
+
+    private String flashMode = Camera.Parameters.FLASH_MODE_OFF;
+
+    private static final String FLASH_MODE_OFF = Camera.Parameters.FLASH_MODE_OFF;
+    private static final String FLASH_MODE_ON = Camera.Parameters.FLASH_MODE_ON;
+    private static final String FLASH_MODE_AUTO = Camera.Parameters.FLASH_MODE_AUTO;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -206,7 +211,7 @@ public class CameraActivity extends AppCompatActivity {
         flashModeBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
+                switchFlashMode();
             }
         });
 
@@ -540,7 +545,7 @@ public class CameraActivity extends AppCompatActivity {
     }
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
-    private void setCameraSwitches(int cameraId) {
+    private void getLatestCamState(int cameraId) {
         // Set the proper flash and camera switch icons
 
         if(cameraId == Camera.CameraInfo.CAMERA_FACING_FRONT) {
@@ -553,6 +558,99 @@ public class CameraActivity extends AppCompatActivity {
                     .getDrawable(R.drawable.ic_camera_front_white_24dp));
             flashModeBtn.setVisibility(View.VISIBLE);
         }
+    }
+
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
+    private void getFlashMode() {
+
+        SharedPreferences sharedPreferences = getSharedPreferences(Utils.FILE_NAME, MODE_PRIVATE);
+        String mode = sharedPreferences.getString(Utils.FLASH_STATE, FLASH_MODE_OFF);
+
+        if(currentCameraId == Camera.CameraInfo.CAMERA_FACING_BACK && camera != null) {
+
+            Camera.Parameters cameraParameters = camera.getParameters();
+
+            if(mode.equalsIgnoreCase(FLASH_MODE_OFF)) {
+                cameraParameters.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
+                camera.setParameters(cameraParameters);
+
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        flashModeBtn.setBackground(getResources().getDrawable(R.drawable.ic_flash_off_white_24dp));
+                        Utils.putSPrefStrValue(CameraActivity.this, Utils.FILE_NAME, Utils.FLASH_STATE, FLASH_MODE_OFF);
+                    }
+                });
+
+            }
+            else if(mode.equalsIgnoreCase(FLASH_MODE_ON)) {
+                cameraParameters.setFlashMode(Camera.Parameters.FLASH_MODE_ON);
+                camera.setParameters(cameraParameters);
+
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        flashModeBtn.setBackground(getResources().getDrawable(R.drawable.ic_flash_on_white_24dp));
+                        Utils.putSPrefStrValue(CameraActivity.this, Utils.FILE_NAME, Utils.FLASH_STATE, FLASH_MODE_ON);
+                    }
+                });
+            }
+            else if(mode.equalsIgnoreCase(FLASH_MODE_AUTO)) {
+                cameraParameters.setFlashMode(Camera.Parameters.FLASH_MODE_AUTO);
+                camera.setParameters(cameraParameters);
+
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        flashModeBtn.setBackground(getResources().getDrawable(R.drawable.ic_flash_auto_white_24dp));
+                        Utils.putSPrefStrValue(CameraActivity.this, Utils.FILE_NAME, Utils.FLASH_STATE, FLASH_MODE_AUTO);
+                    }
+                });
+            }
+
+        }
+
+    }
+
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
+    private void switchFlashMode() {
+
+        if(flashMode.equalsIgnoreCase(FLASH_MODE_OFF)) {
+            flashMode = FLASH_MODE_ON;
+            Utils.putSPrefStrValue(CameraActivity.this, Utils.FILE_NAME, Utils.FLASH_STATE, FLASH_MODE_ON);
+
+            fadeRotateViewAnimation(flashModeBtn, 1.00F, 0.00F, 400L);
+            toggleFlashMode(flashModeBtn, 0.00F, 1.00F, 400L, R.drawable.ic_flash_on_white_24dp);
+        }
+        else if(flashMode.equalsIgnoreCase(FLASH_MODE_ON)) {
+            flashMode = FLASH_MODE_AUTO;
+            Utils.putSPrefStrValue(CameraActivity.this, Utils.FILE_NAME, Utils.FLASH_STATE, FLASH_MODE_AUTO);
+            toggleFlashMode(flashModeBtn, 0.00F, 1.00F, 400L, R.drawable.ic_flash_auto_white_24dp);
+        }
+        else if(flashMode.equalsIgnoreCase(FLASH_MODE_AUTO)) {
+            flashMode = FLASH_MODE_OFF;
+            Utils.putSPrefStrValue(CameraActivity.this, Utils.FILE_NAME, Utils.FLASH_STATE, FLASH_MODE_OFF);
+            toggleFlashMode(flashModeBtn, 0.00F, 1.00F, 400L, R.drawable.ic_flash_off_white_24dp);
+        }
+        else {
+            // Worst case scenario
+            flashMode = FLASH_MODE_OFF;
+            Utils.putSPrefStrValue(CameraActivity.this, Utils.FILE_NAME, Utils.FLASH_STATE, FLASH_MODE_OFF);
+            toggleFlashMode(flashModeBtn, 0.00F, 1.00F, 400L, R.drawable.ic_flash_off_white_24dp);
+        }
+
+    }
+
+    @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
+    private void toggleFlashMode(View view, float fromAlpha, float toAlpha, long time, int drawableRef) {
+
+        // fromAlpha must be less than toAlpha
+
+        fadeRotateViewAnimation(flashModeBtn, toAlpha, fromAlpha, time);
+        view.setVisibility(View.GONE);
+        view.setBackground(getResources().getDrawable(drawableRef));
+        fadeRotateViewAnimation(flashModeBtn, fromAlpha, toAlpha, time);
+        view.setVisibility(View.VISIBLE);
     }
 
     /**
@@ -762,7 +860,7 @@ public class CameraActivity extends AppCompatActivity {
                             surfaceHolder = surfaceView.getHolder();
                             surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
                             surfaceHolder.addCallback(CameraThread.this);
-                            setCameraSwitches(currentCameraId);
+                            getLatestCamState(currentCameraId);
                         }
                     });
                 }

@@ -14,6 +14,7 @@ public class Utils {
 
     public static final String FILE_NAME = "log_states";
     public static final String CAM_STATE = "cam_state";
+    public static final String FLASH_STATE = "flash_state";
 
     // Logging methods
 
@@ -37,6 +38,13 @@ public class Utils {
         SharedPreferences sharedPreferences = context.getSharedPreferences(fileName, Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putBoolean(key, value);
+        editor.apply();
+    }
+
+    public static void putSPrefStrValue(Context context, String fileName, String key, String value) {
+        SharedPreferences sharedPreferences = context.getSharedPreferences(fileName, Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putString(key, value);
         editor.apply();
     }
 }
